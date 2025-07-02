@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRuntimeConfig, useRouter } from '#imports'
- 
+
 const authStore = useAuthStore()
 const config = useRuntimeConfig()
 const data = ref(null)
@@ -10,13 +10,13 @@ const router = useRouter()
 const modalContent = ref('')
 const showModal = ref(false)
 const toDisplayString = ref('')
- 
+
 import { QCard, QCardSection, QInput, QBtn, QDialog, QForm, QUploader, QSpinnerGears, Notify } from 'quasar';
- 
+
 const viewProcess = (row: any) => {
   router.push(`/processes/${row.id}`)
 }
- 
+
 const packageProcess = async (row: any) => {
     try {
       const response = await fetch(`${config.public.NUXT_ZOO_BASEURL}/ogc-api/processes/${row.id}/package`, {
@@ -38,12 +38,12 @@ const packageProcess = async (row: any) => {
       console.error('Application Package request failed', error)
       showModal.value = false
     }
- 
+
 }
- 
+
 const isConformToCwl = ref(false)
 const isCheckingConformance = ref(false)
- 
+
 const checkConformance = async () => {
   isCheckingConformance.value = true
   try {
@@ -53,15 +53,15 @@ const checkConformance = async () => {
         'Accept': 'application/json'
       }
     })
- 
+
     if (response.ok) {
       const conformance = await response.json()
       console.log('Conformance response:', conformance)
- 
+
       // Vérifier si l'API supporte le déploiement CWL
       const cwlConformanceUrl = 'http://www.opengis.net/spec/ogcapi-processes-2/1.0/conf/deploy-replace-undeploy'
       isConformToCwl.value = conformance.conformsTo?.includes(cwlConformanceUrl) || false
- 
+
       console.log('CWL Conformance:', isConformToCwl.value)
     } else {
       console.error('Error fetching conformance:', response.status)
@@ -74,7 +74,7 @@ const checkConformance = async () => {
     isCheckingConformance.value = false
   }
 }
- 
+
 const deleteProcess = async (row: any) => {
   if (confirm(`Are you sure you want to delete the process "${row.id}"?`)) {
     try {
@@ -84,7 +84,7 @@ const deleteProcess = async (row: any) => {
           'Authorization': `Bearer ${authStore.token.access_token}`
         }
       })
-     
+      
       if (response.ok) {
         Notify.create({
           message: 'Process deleted successfully',
@@ -109,17 +109,17 @@ const deleteProcess = async (row: any) => {
     }
   }
 }
- 
+
 // Dialog process form
 const dialog = ref(false)
 const processName = ref('')
 const fileContent = ref('')
 const file = ref<File | null>(null)
- 
+
 const openDialog = () => {
   dialog.value = true
 }
- 
+
 const closeDialog = () => {
   dialog.value = false
   processName.value = ''
@@ -127,7 +127,7 @@ const closeDialog = () => {
   file.value = null
   // (refs.uploader as any).reset();
 }
- 
+
 const onFileAdded = (files: File[]) => {
   if (files.length > 0) {
     file.value = files[0]
@@ -138,12 +138,12 @@ const onFileAdded = (files: File[]) => {
     reader.readAsText(file.value)
   }
 }
- 
+
 const submitForm = async () => {
   if (!fileContent.value) {
     return
   }
- 
+
   try {
     const formData = new FormData()
     formData.append('file', file.value)
@@ -160,7 +160,7 @@ const submitForm = async () => {
       },
       body: fileContent.value,
     })
- 
+
     if(response.ok) {
       console.log('Process deployed successfully.')
       Notify.create({
@@ -184,10 +184,10 @@ const submitForm = async () => {
         icon: 'error'
       })
   }
- 
+
   closeDialog()
 }
- 
+
 const fetchData = async () => {
   try {
     data.value = await $fetch(`${config.public.NUXT_ZOO_BASEURL}/ogc-api/processes`, {
@@ -199,12 +199,12 @@ const fetchData = async () => {
     console.error('Error fetching data:', error)
   }
 }
- 
+
 onMounted(() => {
   checkConformance()
   fetchData()
 })
- 
+
 const columns = [
   { name: 'id', label: '#', field: 'id', align: 'left', sortable: true },
   { name: 'description', label: 'Description', field: 'description', align: 'left', sortable: true },
@@ -216,7 +216,7 @@ const columns = [
     sortable: false
   }
 ]
- 
+
 const rows = computed(() => {
   if (!data.value?.processes) return []
   const term = filter.value.toLowerCase()
@@ -226,16 +226,14 @@ const rows = computed(() => {
     return idMatch || descMatch
   })
 })
- 
+
 const formattedData = computed(() => JSON.stringify(data.value, null, 2))
- 
 const onClearSearch = async () => {
   filter.value = ''
   await fetchData()
 }
- 
 </script>
- 
+
 <template>
   <q-page class="q-pa-sm">
     <div class="row justify-center">
@@ -250,7 +248,7 @@ const onClearSearch = async () => {
           :loading="isCheckingConformance"
         />
         <q-separator />
- 
+
         <div class="q-mb-md">
           <q-input
             filled
@@ -262,7 +260,7 @@ const onClearSearch = async () => {
             @clear="onClearSearch"
           />
         </div>
- 
+
         <q-table
           title="Processes List"
           :rows="rows"
@@ -288,22 +286,23 @@ const onClearSearch = async () => {
             </q-td>
           </template>
         </q-table>
- 
+
         <q-separator />
- 
+
       </div>
     </div>
- 
+
+
     <q-dialog v-model="dialog" persistent>
       <q-card style="min-width: 800px; max-width: 90vw;">
         <q-card-section>
           <div class="text-h6">Add a Process</div>
         </q-card-section>
- 
+
         <q-card-section>
           <q-form @submit.prevent="submitForm">
             <q-input v-model="processName" label="Process Name" />
- 
+
             <q-uploader
               label="Upload a .cwl file"
               accept=".cwl"
@@ -313,7 +312,7 @@ const onClearSearch = async () => {
               :hide-upload-progress="true"
               style="width: 100%;"
             />
- 
+
             <q-input
               v-model="fileContent"
               label="File Content"
@@ -321,7 +320,7 @@ const onClearSearch = async () => {
               @change="fileContent = $event.target.value"
               required
             />
- 
+
             <div class="q-mt-md">
               <q-btn type="submit" label="Submit" color="primary" />
               <q-btn flat label="Cancel" @click="closeDialog" color="negative" />
@@ -330,7 +329,7 @@ const onClearSearch = async () => {
         </q-card-section>
       </q-card>
     </q-dialog>
- 
+
     <q-dialog v-model="showModal" persistent>
       <q-card style="min-width: 600px; max-width: 90vw;" class="rounded-borders">
         <q-card-section class="row items-center q-pb-none">
@@ -338,7 +337,7 @@ const onClearSearch = async () => {
           <q-space />
           <q-btn icon="close" flat round dense @click="showModal = false" />
         </q-card-section>
- 
+
         <q-card-section>
           <div v-if="modalContent">
             <pre style="max-width:100%;max-height:250px;overflow:auto;">{{ modalContent }}</pre>
@@ -347,6 +346,6 @@ const onClearSearch = async () => {
         </q-card-section>
       </q-card>
     </q-dialog>
- 
+
   </q-page>
 </template>
