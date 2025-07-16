@@ -69,7 +69,6 @@
       <div class="col-auto">
         <q-tabs dense align="left">
           <q-route-tab v-if="authStore.user" no-caps to="/swagger" label="Swagger"/>
-          <q-route-tab v-if="authStore.user" no-caps to="/ogc-api" label="OGC API"/>
           <q-route-tab v-if="authStore.user" no-caps to="/processes" label="Processes"/>
           <q-route-tab v-if="authStore.user" no-caps to="/jobs" label="Jobs"/>
         </q-tabs>
@@ -170,4 +169,3 @@ onMounted(() => {
 <style scoped>
 
 </style>
-
