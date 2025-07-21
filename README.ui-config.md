@@ -177,7 +177,7 @@ watch(selectedLayout, (newLayout) => {
 
 ---
 
-## Notes
+## Usage Tips
 
 - Include layout and language switchers in both layouts (`Default`, `Quasar`).
 - Use `<NuxtPage />` inside `<q-page-container>` in each layout.
