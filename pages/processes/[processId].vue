@@ -44,7 +44,7 @@ const fetchData = async () => {
           input?.schema?.mediaType ||
           (input?.schema?.oneOf?.some(f => f.contentMediaType))
         ) {
-          const supportedFormats = input.schema.oneOf?.map(f => f.contentMediaType) || ['application/json', 'text/xml', 'text/plain'];
+          const supportedFormats = input.schema.oneOf?.map(f => f.contentMediaType) || DEFAULT_SUPPORTED_FORMATS;
 
           inputValues.value[key] = {
             mode: 'href',
