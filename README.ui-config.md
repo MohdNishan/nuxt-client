@@ -21,6 +21,8 @@ layouts/
 
 components/
   layout/
+    shared/
+      SettingsMenu.vue
     default/
       Header.vue
       Footer.vue

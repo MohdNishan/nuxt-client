@@ -34,7 +34,7 @@
           <div v-if="!authStore.user">
             <q-btn v-if="isSmallScreen" class="q-px-sm" dense no-caps color="accent" round
                    icon="mdi-account-circle" href="/api/auth/signin"/>
-            <q-btn v-else-if="!isLoggedUser" class="q-px-md" no-caps color="accent" label="Acceder"
+            <q-btn v-else-if="!isLoggedUser" class="q-px-md" no-caps color="accent" :label="t('Authenticate')"
                    :href="'/api/auth/signin'"/>
           </div>
           <div v-else>

@@ -41,7 +41,7 @@ export default defineNuxtConfig({
         ],
         defaultLocale: 'en',
         lazy: true,
-        strategy: 'no_prefix',
+        strategy: 'no_prefix', // 'no_prefix' used to keep URLs clean. Language switching is handled via cookies and UI. SEO impact is minimal for internal app.
         detectBrowserLanguage: {
           useCookie: true,
           cookieKey: 'i18n_redirected',

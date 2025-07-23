@@ -88,5 +88,6 @@
   "Deploying process...": "Deploying process...",
   "Process deployed successfully": "Process deployed successfully",
   "Failed to deploy process": "Failed to deploy process",
-  "Request failed": "Request failed"
+  "Request failed": "Request failed",
+  "Authenticate": "Authenticate"
 }

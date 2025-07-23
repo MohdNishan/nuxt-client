@@ -77,9 +77,9 @@
   "Processing...": "Traitement en cours...",
   "View Full Result JSON": "Voir le JSON complet du résultat",
 
-  "Failed to fetch jobs list": "Failed to fetch jobs list",
-  "Job deleted successfully": "Job deleted successfully",
-  "Failed to delete job": "Failed to delete job",
+  "Failed to fetch jobs list": "Échec de la récupération de la liste des travaux",
+  "Job deleted successfully": "Travail supprimé avec succès",
+  "Failed to delete job": "Échec de la suppression du travail",
 
   "Are you sure you want to delete the process": "Êtes-vous sûr de vouloir supprimer le processus",
   "Process deleted successfully": "Processus supprimé avec succès",
@@ -88,5 +88,6 @@
   "Deploying process...": "Déploiement du processus...",
   "Process deployed successfully": "Processus déployé avec succès",
   "Failed to deploy process": "Échec du déploiement du processus",
-  "Request failed": "Échec de la requête"
+  "Request failed": "Échec de la requête",
+  "Authenticate": "Accéder"
 }

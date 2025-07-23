@@ -29,6 +29,22 @@ const subscriberValues = ref({
   failedUri: 'http://zookernel/cgi-bin/publish.py?jobid=JOBSOCKET-83dcc87e-55a7-11f0-abed-0242ac106a07&type=failed'
 })
 
+
+function initializeInputValues(inputs: Record<string, any>): Record<string, any> {
+  const values: Record<string, any> = {}
+  for (const [key, input] of Object.entries(inputs)) {
+    if (input.type === 'BoundingBoxData') {
+      values[key] = { minx: 0, miny: 0, maxx: 0, maxy: 0 }
+    } else if (input.type === 'ComplexData') {
+      values[key] = ''
+    } else {
+      values[key] = input.schema?.default ?? (input.schema?.type === 'number' ? 0 : '')
+    }
+  }
+  return values
+}
+
+
 const fetchData = async () => {
   try {
     data.value = await $fetch(`${config.public.NUXT_ZOO_BASEURL}/ogc-api/processes/${processId}`, {
@@ -38,21 +54,8 @@ const fetchData = async () => {
       }
     })
 
-    if (data.value && data.value.inputs) {
-      for (const [key, input] of Object.entries(data.value.inputs)) {
-        if (input.type === 'BoundingBoxData') {
-          inputValues.value[key] = {
-            minx: 0,
-            miny: 0,
-            maxx: 0,
-            maxy: 0
-          }
-        } else if (input.type === 'ComplexData') {
-          inputValues.value[key] = ''
-        } else {
-          inputValues.value[key] = input.schema?.default ?? (input.schema?.type === 'number' ? 0 : '')
-        }
-      }
+  if (data.value && data.value.inputs) {
+      inputValues.value = initializeInputValues(data.value.inputs)
     }
 
     if (data.value && data.value.outputs) {
@@ -371,7 +374,7 @@ const removeInputField = (inputId: string, index: number) => {
           <q-card-actions align="right">
             <q-btn flat label="Cancel" color="primary" v-close-popup />
             <q-btn
-              label="t('Submit Request')"
+              :label="t('Submit Request')"
               color="primary"
               :loading="loading"
               @click="() => { showDialog = false; submitProcess() }"

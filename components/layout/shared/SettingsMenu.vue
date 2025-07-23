@@ -11,7 +11,7 @@
                   { label: 'Française', value: 'fr' }
                 ]"
                 dense borderless emit-value map-options
-                label="Language"
+                :label="t('Language')"
               />
             </q-item-section>
           </q-item>
