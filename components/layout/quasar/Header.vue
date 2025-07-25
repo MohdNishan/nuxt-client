@@ -19,23 +19,23 @@
   <div class="col-auto">
     <q-tabs dense align="left">
       <q-route-tab
-        v-for="tab in leftTabs"
+        v-for="tab in homeTab"
         :key="tab.path"
-        no-caps
-        :to="tab.path"
+        :href="tab.path"
         :label="t(tab.label)"
+        no-caps
       />
     </q-tabs>
   </div>
   <q-space/>
   <div class="col-auto">
-    <q-tabs dense align="left">
+    <q-tabs dense align="right">
       <q-route-tab
         v-for="tab in rightTabs"
         :key="tab.path"
-        no-caps
-        :to="tab.path"
         :label="t(tab.label)"
+        :href="tab.path"
+        no-caps
       />
     </q-tabs>
   </div>
@@ -50,17 +50,35 @@ import { ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useCookie } from '#app'
 import { useAuthStore } from '~/stores/auth'
-import { menuItems } from '~/composables/utils/menuItems'
+import { useLandingLinks } from '~/composables/utils/useLandingLinks'
 
 const { locale, t } = useI18n()
 
 const authStore = useAuthStore()
-const leftTabs = computed(() => {
-  return menuItems.filter(item => !item.auth)
-})
 
-const rightTabs = computed(() => {
-  return menuItems.filter(item => item.auth && authStore.user)
-})
+const { landingLinks } = useLandingLinks()
+
+function autoLabel(href: string): string {
+  const filename = href.split('/').pop()?.replace('.html', '') || ''
+  return filename.charAt(0).toUpperCase() + filename.slice(1)
+}
+
+const homeTab = computed(() =>
+  landingLinks.value
+    .filter(link => link.href && link.href.endsWith('index.html'))
+    .map(link => ({
+      path: link.href,
+      label: 'Home'
+    }))
+)
+
+const rightTabs = computed(() =>
+  landingLinks.value
+    .filter(link => link.href && link.href.endsWith('.html') && !link.href.endsWith('index.html'))
+    .map(link => ({
+      path: link.href,
+      label: autoLabel(link.href)
+    }))
+)
 
 </script>

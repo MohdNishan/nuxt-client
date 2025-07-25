@@ -240,7 +240,7 @@ const submitProcess = async () => {
       headers: {
         Authorization: `Bearer ${authStore.token.access_token}`,
         'Content-Type': 'application/json',
-        'Accept-Language': locale.value
+        'Accept-Language': locale.value,
         'Prefer': preferMode.value
       },
       body: JSON.stringify(payload)
@@ -514,6 +514,7 @@ const removeInputField = (inputId: string, index: number) => {
               </template>
             </div>
           </q-card>
+          </div>
 
       <div class="q-gutter-sm row items-center">
         <q-badge color="grey-3" text-color="black">
@@ -673,7 +674,7 @@ const removeInputField = (inputId: string, index: number) => {
           <q-btn label="Submit" type="submit" color="primary" />
           <q-btn color="primary" outline label="Show JSON Preview" @click="showDialog = true" />
         </div>
-      </q-form>
+
 
       <q-dialog v-model="showDialog" persistent>
         <q-card style="min-width: 70vw; max-width: 90vw;">
