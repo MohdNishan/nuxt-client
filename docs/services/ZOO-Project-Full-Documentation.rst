@@ -39,13 +39,15 @@ Use the provided Dockerfile to build the image:
 
     docker build . -f Dockerfile-MOZJS -t zooproject/zoo-project-default:latest
 
-4. Extract the Nuxt UI Archive
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Download and extract the Nuxt UI files:
+4. (Optional) Extract the Nuxt UI Archive
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+If a pre-built Nuxt UI archive is available, extract it here:
 
 .. code-block:: bash
 
     tar -xvf ~/Downloads/nuxt-client.tar.bz2
+
+If not provided, this step can be skipped.
 
 5. Clone the Nuxt Client Repository
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -82,13 +84,9 @@ Replace the default IP with your machine's local IP (e.g., 192.168.x.x).
 
 9. Update Keycloak Valid Redirect URLs
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Go to the Keycloak admin page and add your local host URL to the **Valid Redirect URIs**:
+Refer to the ``keycloak.rst`` file for detailed instructions on configuring Keycloak, including setting up valid redirect URLs and client credentials.
 
-    https://auth.geolabs.fr/admin/master/console/#/zooproject/clients/46d7d010-8bf8-438d-bd4d-b6212c0e928b/settings
-
-Credentials:
-- **User:** admin
-- **Password:** GeoLabs.1
+**Important:** Do not share sensitive URLs or credentials publicly.
 
 Troubleshooting Tips
 --------------------
