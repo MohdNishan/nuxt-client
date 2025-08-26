@@ -1,9 +1,8 @@
-
 ZOO-Project Nuxt UI Setup Documentation
 =======================================
 
 This documentation provides a step-by-step guide for setting up and running the Nuxt-based UI for the ZOO-Project.
-It combines the original instructions provided by Gérald with additional troubleshooting steps encountered during the setup.
+It combines the original setup instructions with additional troubleshooting steps encountered during the process.
 
 Prerequisites
 -------------
@@ -26,7 +25,7 @@ Run the following commands to clone the main repository:
 
 2. Apply the MOZJS Patch
 ~~~~~~~~~~~~~~~~~~~~~~~~
-Download the patch file from Gérald's link and apply it:
+Download the patch file and apply it:
 
 .. code-block:: bash
 
@@ -42,7 +41,7 @@ Use the provided Dockerfile to build the image:
 
 4. Extract the Nuxt UI Archive
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Download and extract the Nuxt UI files from Gérald's archive:
+Download and extract the Nuxt UI files:
 
 .. code-block:: bash
 
@@ -83,7 +82,7 @@ Replace the default IP with your machine's local IP (e.g., 192.168.x.x).
 
 9. Update Keycloak Valid Redirect URLs
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Go to the following Keycloak admin page and add your local host URL to the **Valid Redirect URIs**:
+Go to the Keycloak admin page and add your local host URL to the **Valid Redirect URIs**:
 
     https://auth.geolabs.fr/admin/master/console/#/zooproject/clients/46d7d010-8bf8-438d-bd4d-b6212c0e928b/settings
 
@@ -116,4 +115,4 @@ Troubleshooting Tips
 
 Conclusion
 ----------
-Following the above steps should set up the Nuxt-based UI for ZOO-Project successfully. The instructions combine Gérald's original guide with practical troubleshooting encountered during setup.
+Following the above steps should set up the Nuxt-based UI for ZOO-Project successfully. The instructions combine the original setup process with practical troubleshooting encountered during installation.
