@@ -3,14 +3,14 @@ import { ref, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useRuntimeConfig } from '#imports'
 import { triggerRef } from 'vue'
- 
+
 const {
   params: { processId }
 } = useRoute()
- 
+
 const authStore = useAuthStore()
 const config = useRuntimeConfig()
- 
+
 const data = ref(null)
 const inputValues = ref<Record<string, Array<{ mode: 'value' | 'href', value: string, href: string }>>>({})
 const outputValues = ref<Record<string, any>>({})
@@ -23,14 +23,19 @@ const showDialog = ref(false)
 const requiredInputs = ref<string[]>([])
 const inputRefs = ref<Record<string, HTMLElement | null>>({})
 const validationErrors = ref<Record<string, boolean>>({})
- 
+const progressPercent = ref(0)
+const progressMessage = ref('')
+const jobId = ref("");
+
+
+
 const subscriberValues = ref({
   successUri: 'http://zookernel/cgi-bin/publish.py?jobid=JOBSOCKET-83dcc87e-55a7-11f0-abed-0242ac106a07&type=success',
   inProgressUri: 'http://zookernel/cgi-bin/publish.py?jobid=JOBSOCKET-83dcc87e-55a7-11f0-abed-0242ac106a07&type=inProgress',
   failedUri: 'http://zookernel/cgi-bin/publish.py?jobid=JOBSOCKET-83dcc87e-55a7-11f0-abed-0242ac106a07&type=failed'
 })
- 
- 
+
+
 const fetchData = async () => {
   try {
     data.value = await $fetch(`${config.public.NUXT_ZOO_BASEURL}/ogc-api/processes/${processId}`, {
@@ -38,7 +43,7 @@ const fetchData = async () => {
         Authorization: `Bearer ${authStore.token.access_token}`
       }
     })
- 
+
     if (data.value && data.value.inputs) {
       for (const [key, input] of Object.entries(data.value.inputs)) {
         console.log(input)
@@ -55,7 +60,7 @@ const fetchData = async () => {
           const supportedFormats = (
             input.schema.oneOf?.map(f => f.contentMediaType).filter(Boolean) || []
           );
- 
+
           if (!supportedFormats.includes('application/json')) {
             supportedFormats.push('application/json');
           }
@@ -72,7 +77,7 @@ const fetchData = async () => {
         ]
           continue;
         }
- 
+
         // Bounding Box input
         if (
           input.schema?.type === 'object' &&
@@ -85,7 +90,7 @@ const fetchData = async () => {
           })
           continue
         }
- 
+
         // Multiple inputs (array)
         if (input.schema?.type === 'array') {
           inputValues.value[key] = [
@@ -99,7 +104,7 @@ const fetchData = async () => {
           ];
           continue
         }
- 
+
         // Default init for literal input
         inputValues.value[key] = input.schema?.default ?? (input.schema?.type === 'number' ? 0 : '')
       }
@@ -129,18 +134,18 @@ const fetchData = async () => {
     console.error('Error fetching data:', error)
   }
 }
- 
+
 onMounted(() => {
   fetchData()
 })
- 
+
 const convertOutputsToPayload = (outputs: Record<string, any[]>) => {
   const result: Record<string, any> = {}
- 
+  
   for (const [key, outputArray] of Object.entries(outputs)) {
     if (outputArray && outputArray.length > 0) {
       const outputConfig: any = {}
-     
+      
       // Parcourir chaque élément du tableau
       outputArray.forEach(item => {
         if (item.id === 'transmission') {
@@ -151,18 +156,18 @@ const convertOutputsToPayload = (outputs: Record<string, any[]>) => {
           }
         }
       })
-     
+      
       result[key] = outputConfig
     }
   }
   return result
 }
- 
+
 watch([inputValues, outputValues, subscriberValues], ([newInputs, newOutputs, newSubscribers]) => {
   console.log('Outputs changed:', newOutputs)
- 
+
   const formattedInputs: Record<string, any> = {}
- 
+
   for (const [key, val] of Object.entries(newInputs)) {
     // If multiple inputs (array)
     if (Array.isArray(val)) {
@@ -181,7 +186,7 @@ watch([inputValues, outputValues, subscriberValues], ([newInputs, newOutputs, ne
       formattedInputs[key] = val
     }
   }
- 
+
   const payload = {
     inputs: formattedInputs,
     outputs: convertOutputsToPayload(newOutputs),
@@ -193,18 +198,18 @@ watch([inputValues, outputValues, subscriberValues], ([newInputs, newOutputs, ne
   }
   jsonRequestPreview.value = JSON.stringify(payload, null, 2)
 }, { deep: true })
- 
+
 const pollJobStatus = async (jobId: string) => {
   const jobUrl = `${config.public.NUXT_ZOO_BASEURL}/ogc-api/jobs/${jobId}`
   const headers = {
     Authorization: `Bearer ${authStore.token.access_token}`
   }
- 
+
   while (true) {
     try {
       const job = await $fetch(jobUrl, { headers })
       jobStatus.value = job.status
- 
+
       if (job.status === 'successful') {
         response.value = job
         loading.value = false
@@ -214,7 +219,7 @@ const pollJobStatus = async (jobId: string) => {
         loading.value = false
         break
       }
- 
+
       await new Promise(resolve => setTimeout(resolve, 2000))
     } catch (err) {
       console.error('Polling error:', err)
@@ -223,56 +228,76 @@ const pollJobStatus = async (jobId: string) => {
     }
   }
 }
- 
+
 const listenToWebSocket = (jobId: string) => {
   const wsUrl = `ws://${window.location.hostname}:8888/`;
   const ws = new WebSocket(wsUrl);
- 
+
   ws.onopen = () => {
-    console.log('WebSocket connected');
+    console.log("WebSocket connected");
+    const subscriptionId = jobId.startsWith("JOBSOCKET-") ? jobId : `JOBSOCKET-${jobId}`;
+    ws.send("SUB " + subscriptionId);
+    console.log("Subscribed to:", subscriptionId);
   };
- 
+
   ws.onmessage = (event) => {
+    console.log("Raw WebSocket message:", event.data);
+
+    // Only handle updates (handshake is not used to create jobs anymore)
+    if (event.data === "1") {
+      console.log("Server handshake received – waiting for job updates...");
+      return;
+    }
+
     try {
       const message = JSON.parse(event.data);
-      if (message.jobid !== jobId) {
-        console.warn('Received message for different job ID:', message.jobid);
+
+      if (!message.jobid || message.jobid.replace(/^JOBSOCKET-/, "") !== jobId) {
+        console.warn("Mismatched or missing job ID in message:", message);
         return;
       }
- 
-      jobStatus.value = message.type;
- 
-      if (message.type === 'success') {
+
+      
+      if (message.type === "success" || message.status === "successful") {
         response.value = message;
+        jobStatus.value = "successful";
         loading.value = false;
+        progressPercent.value = 100;
+        progressMessage.value = "Completed successfully";
         ws.close();
-      } else if (message.type === 'failed') {
-        response.value = { error: 'Job failed', details: message };
+      } else if (message.type === "failed" || message.status === "failed") {
+        response.value = { error: "Job failed", details: message };
+        jobStatus.value = "failed";
         loading.value = false;
+        progressMessage.value = "Execution failed";
         ws.close();
-      } else if (message.type === 'inProgress') {
-        jobStatus.value = 'running...';
+      } else {
+        jobStatus.value = "running...";
+        progressPercent.value = message.progress ?? progressPercent.value;
+        progressMessage.value = message.message ?? message.statusText ?? progressMessage.value;
       }
     } catch (e) {
-      console.error('Invalid WebSocket message', event.data);
+      console.error("Invalid WebSocket message format:", event.data);
     }
   };
- 
+
   ws.onerror = (err) => {
-    console.error('WebSocket error', err);
+    console.error("WebSocket error", err);
     ws.close();
   };
 };
- 
- 
+
+
+
+
 const validateRequiredInputs = (): boolean => {
   for (const inputId of requiredInputs.value) {
     const val = inputValues.value[inputId]
- 
+
     if (val === undefined || val === '' || (Array.isArray(val) && val.every(v => !v.value && !v.href))) {
       return false
     }
- 
+
     // Bounding box case
     if (val && typeof val === 'object' && 'bbox' in val) {
       if (val.bbox.some(coord => coord === null || coord === undefined || coord === '')) {
@@ -280,31 +305,31 @@ const validateRequiredInputs = (): boolean => {
       }
     }
   }
- 
+
   return true
 }
- 
+
 function setInputRef(id: string, el: HTMLElement | null) {
   if (el) {
     inputRefs.value[id] = el
   }
 }
- 
+
 function validateAndSubmit() {
   validationErrors.value = {}
- 
+
   let firstInvalid: string | null = null
- 
+
   for (const key of requiredInputs.value) {
     const value = inputValues.value[key]
     const isEmpty = Array.isArray(value) ? value.length === 0 : !value
- 
+
     if (isEmpty) {
       validationErrors.value[key] = true
       if (!firstInvalid) firstInvalid = key
     }
   }
- 
+
   if (firstInvalid) {
     const el = inputRefs.value[firstInvalid]
     if (el?.scrollIntoView) {
@@ -312,10 +337,10 @@ function validateAndSubmit() {
     }
     return
   }
- 
+
   submitProcess()
 }
- 
+
 const submitProcess = async () => {
   if (!validateRequiredInputs()) {
     $q.notify({
@@ -324,27 +349,25 @@ const submitProcess = async () => {
     })
     return
   }
+
   try {
     loading.value = true
     response.value = null
     jobStatus.value = 'submitted'
- 
+
     // Update the payload BEFORE submission
     const originalPayload = JSON.parse(jsonRequestPreview.value)
- 
+
+    // If async mode, include the real subscriber URIs
     if (preferMode.value === 'respond-async') {
-      // Temporarily assign dummy job ID to show in preview (it will be overwritten)
-      const jobIdPlaceholder = 'DUMMY_JOB_ID';
       originalPayload.executionOptions = {
         subscriber: {
-          successUri: `http://zookernel/cgi-bin/publish.py?jobid=${jobIdPlaceholder}&type=success`,
-          inProgressUri: `http://zookernel/cgi-bin/publish.py?jobid=${jobIdPlaceholder}&type=inProgress`,
-          failedUri: `http://zookernel/cgi-bin/publish.py?jobid=${jobIdPlaceholder}&type=failed`
+          ...subscriberValues.value
         }
-      };
+      }
     }
- 
-    // First call - only once
+
+    // Submit execution request
     const res = await $fetch(`${config.public.NUXT_ZOO_BASEURL}/ogc-api/processes/${processId}/execution`, {
       method: 'POST',
       headers: {
@@ -354,35 +377,46 @@ const submitProcess = async () => {
       },
       body: JSON.stringify(originalPayload)
     });
- 
+
     if (res.jobID) {
-      const jobId = res.jobID;
- 
-      // Update subscriber URIs
+      const jobId = res.jobID.replace(/^JOBSOCKET-/, '');
+
+      // Update subscriber URIs (can be used for logs or retry logic if needed)
       subscriberValues.value = {
         successUri: `http://zookernel/cgi-bin/publish.py?jobid=${jobId}&type=success`,
         inProgressUri: `http://zookernel/cgi-bin/publish.py?jobid=${jobId}&type=inProgress`,
         failedUri: `http://zookernel/cgi-bin/publish.py?jobid=${jobId}&type=failed`
       };
- 
-      listenToWebSocket(jobId)
+
+      // Start WebSocket listener
+      listenToWebSocket(jobId);
+
+    } else {
+      // For sync responses or if no job ID is returned
+      response.value = res;
+      jobStatus.value = 'successful';
     }
   } catch (error) {
-    console.error('Execution error:', error)
-    loading.value = false
+    console.error('Execution error:', error);
+    $q.notify({
+      type: 'negative',
+      message: 'Process execution failed.'
+    });
+    jobStatus.value = 'failed';
+    loading.value = false;
   }
 }
- 
+
 const isMultipleInput = (input: any) => {
   return input.maxOccurs && input.maxOccurs > 1
 }
- 
+
 const isBoundingBoxInput = (input: any) => {
   return input.schema?.type === 'object' &&
          input.schema?.properties?.bbox?.type === 'array' &&
          input.schema?.properties?.crs?.type === 'string';
 }
- 
+
 const isComplexInput = (input: any) => {
   return (
     input?.schema &&
@@ -393,17 +427,17 @@ const isComplexInput = (input: any) => {
     )
   )
 }
- 
-const DEFAULT_SUPPORTED_FORMATS = ['application/json', 'text/plain']
- 
+
+const DEFAULT_SUPPORTED_FORMATS = ['application/json', 'text/plain'] 
+
 const addInputField = (inputId: string) => {
- 
+
   if (!Array.isArray(inputValues.value[inputId])) {
     inputValues.value[inputId] = []
   }
- 
+
   const currentFormats = inputValues.value[inputId][0]?.availableFormats || DEFAULT_SUPPORTED_FORMATS
- 
+
   inputValues.value[inputId].push({
     mode: 'value',
     value: '',
@@ -411,20 +445,20 @@ const addInputField = (inputId: string) => {
     format: currentFormats[0],
     availableFormats: currentFormats
   })
- 
+
   triggerRef(inputValues)
 }
- 
+
 const removeInputField = (inputId: string, index: number) => {
   if (Array.isArray(inputValues.value[inputId]) && inputValues.value[inputId].length > 1) {
     inputValues.value[inputId].splice(index, 1)
     triggerRef(inputValues)
   }
 }
- 
- 
+
+
 </script>
- 
+
 <template>
   <q-page class="q-pa-md">
     <div v-if="data">
@@ -438,18 +472,18 @@ const removeInputField = (inputId: string, index: number) => {
         </div>
         <q-separator class="q-mt-md" />
       </div>
- 
+
       <!-- <h4>{{ data.id }} - {{ data.description }}</h4> -->
- 
+
       <q-form @submit.prevent="validateAndSubmit">
- 
+
         <div class="q-mb-lg">
           <div class="text-h4 text-weight-bold text-primary q-mb-sm">
             Inputs
           </div>
           <q-separator class="q-mt-md" />
         </div>
- 
+
         <div v-for="(input, inputId) in data.inputs" :key="inputId" class="q-mb-md">
           <q-card class="q-pa-md" :ref="el => setInputRef(inputId, el)">
             <div class="row items-center q-mb-sm">
@@ -458,13 +492,13 @@ const removeInputField = (inputId: string, index: number) => {
                 <span v-if="requiredInputs.includes(inputId)" class="text-red">*</span>
               </div>
             </div>
- 
+
             <!-- <div class="text-blue text-bold q-mb-sm">{{ inputId.toUpperCase() }}</div> -->
             <div class="q-gutter-sm">
               <q-badge color="grey-3" text-color="black" class="q-mb-sm">
                 {{ input.schema?.type || 'text' }}
               </q-badge>
- 
+
               <!-- Complex + Multiple input -->
               <template v-if="isComplexInput(input) && Array.isArray(inputValues[inputId])">
                 <div
@@ -481,7 +515,7 @@ const removeInputField = (inputId: string, index: number) => {
                     type="radio"
                     inline
                   />
- 
+
                   <template v-if="item.mode === 'href'">
                     <q-option-group
                       v-if="item.hrefOptions && item.hrefOptions.length > 0"
@@ -498,7 +532,7 @@ const removeInputField = (inputId: string, index: number) => {
                       dense
                     />
                   </template>
- 
+
                   <div v-else>
                     <q-select
                       v-model="item.format"
@@ -516,7 +550,7 @@ const removeInputField = (inputId: string, index: number) => {
                       dense
                     />
                   </div>
- 
+
                   <q-btn
                     icon="delete"
                     round
@@ -531,7 +565,7 @@ const removeInputField = (inputId: string, index: number) => {
                     <q-tooltip>Remove</q-tooltip>
                   </q-btn>
                 </div>
- 
+
                 <!-- Add another input button -->
                 <template v-if="isMultipleInput(input)">
                   <q-btn
@@ -544,7 +578,7 @@ const removeInputField = (inputId: string, index: number) => {
                   />
                 </template>
               </template>
- 
+
               <!-- Bounding Box Input -->
               <template v-else-if="isBoundingBoxInput(input)">
                 <div class="q-gutter-md">
@@ -570,7 +604,7 @@ const removeInputField = (inputId: string, index: number) => {
                   />
                 </div>
               </template>
- 
+
               <!-- Multiple input array -->
               <template v-else-if="Array.isArray(inputValues[inputId])">
                 <div v-for="(val, idx) in inputValues[inputId]" :key="idx" class="row items-center q-gutter-sm q-mb-sm">
@@ -596,7 +630,7 @@ const removeInputField = (inputId: string, index: number) => {
                   </q-btn>
                 </div>
               </template>
- 
+
               <!-- Literal input (no enum) -->
               <template v-else-if="!input.schema?.enum">
                 <q-input
@@ -610,7 +644,7 @@ const removeInputField = (inputId: string, index: number) => {
                   :error-message="validationErrors[inputId] ? 'This field is required' : ''"
                 />
               </template>
- 
+
               <!-- Enum input -->
               <template v-else>
                 <q-select
@@ -625,16 +659,16 @@ const removeInputField = (inputId: string, index: number) => {
               </template>
             </div>
           </q-card>
- 
+
         </div>
- 
+
         <div class="q-mb-lg">
           <div class="text-h4 text-weight-bold text-primary q-mb-sm">
             Outputs
           </div>
           <q-separator class="q-mt-md" />
         </div>
- 
+
         <div v-for="(output, outputId) in data.outputs" :key="outputId" class="q-mb-md">
           <q-card class="q-pa-md">
               <div class="row items-center q-mb-sm">
@@ -666,10 +700,10 @@ const removeInputField = (inputId: string, index: number) => {
                 style="flex: 1"
               >
               </q-select>
- 
+
           </q-card>
         </div>
- 
+
         <div class="q-mb-md">
           <q-card class="q-pa-md">
             <div class="row items-center q-mb-sm">
@@ -679,7 +713,7 @@ const removeInputField = (inputId: string, index: number) => {
                 <q-tooltip>URLs to receive status notifications</q-tooltip>
               </q-icon>
             </div>
- 
+
             <div class="q-gutter-md">
               <!-- Success URI -->
               <div class="q-gutter-sm row items-center">
@@ -701,7 +735,7 @@ const removeInputField = (inputId: string, index: number) => {
                   </template>
                 </q-input>
               </div>
- 
+
               <!-- In Progress URI -->
               <div class="q-gutter-sm row items-center">
                 <q-badge color="orange" text-color="white">
@@ -722,7 +756,7 @@ const removeInputField = (inputId: string, index: number) => {
                   </template>
                 </q-input>
               </div>
- 
+
               <!-- Failed URI -->
               <div class="q-gutter-sm row items-center">
                 <q-badge color="red" text-color="white">
@@ -759,13 +793,13 @@ const removeInputField = (inputId: string, index: number) => {
           <q-btn color="primary" outline label="Show JSON Preview" @click="showDialog = true" />
         </div>
       </q-form>
- 
+
       <q-dialog v-model="showDialog" persistent>
         <q-card style="min-width: 70vw; max-width: 90vw;">
           <q-card-section>
             <div class="text-h6">Execute Request Confirmation</div>
           </q-card-section>
- 
+
           <q-card-section class="q-pt-none">
             <q-banner dense class="bg-grey-2 text-black q-pa-sm">
               This is the full request that will be sent to the Execute endpoint:
@@ -781,7 +815,7 @@ const removeInputField = (inputId: string, index: number) => {
       {{ jsonRequestPreview }}
             </pre> -->
           </q-card-section>
- 
+
           <q-card-actions align="right">
             <q-btn flat label="Cancel" color="primary" v-close-popup />
             <q-btn
@@ -793,12 +827,20 @@ const removeInputField = (inputId: string, index: number) => {
           </q-card-actions>
         </q-card>
       </q-dialog>
- 
+
       <div class="q-mt-md" v-if="loading">
-        <q-linear-progress indeterminate color="primary" />
-        <div class="text-caption text-primary q-mt-sm">Execution in progress... Status: {{ jobStatus }}</div>
+        <q-linear-progress
+          v-if="loading"
+          :value="progressPercent / 100"
+          color="primary"
+          class="q-mt-md"
+        />
+        <div class="text-caption text-primary q-mt-sm">
+          Execution in progress... Status: {{ jobStatus }}<br>
+          <span v-if="progressMessage">{{ progressMessage }}</span>
+        </div>
       </div>
- 
+
       <div class="q-mt-lg" v-if="response">
         <h6>Execution Response</h6>
         <details>
