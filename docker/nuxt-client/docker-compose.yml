@@ -44,6 +44,7 @@ services:
       front-tier-1:
         ipv4_address: 172.16.232.11
     volumes:
+      - ./docker/startUp.sh:/startUp.sh
       - ./docker/main.cfg:/usr/lib/cgi-bin/main.cfg
       - ./docker/oas.cfg:/usr/lib/cgi-bin/oas.cfg
       - ./docker/tmp:/tmp/zTmp
@@ -75,7 +76,7 @@ services:
     depends_on:
       - redis
     ports:
-      - 8885:8888
+      - 8888:8888
     environment:
       - ZOO_REDIS_HOST=redis
     volumes:

@@ -37,18 +37,13 @@ print('')
 from urllib import parse
 
 try:
-    params = parse.parse_qs(os.environ["QUERY_STRING"])
-    r = redis.Redis(
-        host=os.environ.get("ZOO_REDIS_HOST", "redis"),
-        port=6379,
-        db=0
-    )
-
-    channel = params["jobid"][0]
-    if not channel.startswith("JOBSOCKET-"):
-        channel = f"JOBSOCKET-{channel}"
-
-    r.publish(channel, data)
+    params=parse.parse_qs(os.environ["QUERY_STRING"])
+    r=None
+    if "ZOO_REDIS_HOST" in os.environ:
+        r = redis.Redis(host=os.environ["ZOO_REDIS_HOST"], port=6379, db=0)
+    else:
+        r = redis.Redis(host='redis', port=6379, db=0)
+    r.publish(params["jobid"][0],data)
 except Exception as e:
-    print(e)
+	print(e)
 
