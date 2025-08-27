@@ -84,7 +84,7 @@ Replace the default IP with your machine's local IP (e.g., 192.168.x.x).
 
 9. Update Keycloak Valid Redirect URLs
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Refer to the ``keycloak.rst`` file for detailed instructions on configuring Keycloak, including setting up valid redirect URLs and client credentials.
+Refer to the :doc:`Keycloak Documentation <keycloak>` for detailed instructions on configuring Keycloak, including setting up valid redirect URLs and client credentials.
 
 **Important:** Do not share sensitive URLs or credentials publicly.
 
