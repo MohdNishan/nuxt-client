@@ -231,51 +231,58 @@ const listenToWebSocket = (jobId: string) => {
   const ws = new WebSocket(wsUrl);
 
   ws.onopen = () => {
-    console.log('WebSocket connected');
+    console.log("WebSocket connected");
+    const subscriptionId = jobId.startsWith("JOBSOCKET-") ? jobId : `JOBSOCKET-${jobId}`;
+    ws.send("SUB " + subscriptionId);
+    console.log("Subscribed to:", subscriptionId);
   };
 
   ws.onmessage = (event) => {
-    console.log('Raw WebSocket message:', event.data);
+    console.log("Raw WebSocket message:", event.data);
+
+    // Only handle updates (handshake is not used to create jobs anymore)
+    if (event.data === "1") {
+      console.log("Server handshake received -   waiting for job updates...");
+      return;
+    }
 
     try {
       const message = JSON.parse(event.data);
-      console.log('Parsed WebSocket message:', message); 
 
-      if (!message.jobid || message.jobid !== jobId) {
-        console.warn('Mismatched or missing job ID in message:', message);
+      if (!message.jobid || message.jobid.replace(/^JOBSOCKET-/, "") !== jobId) {
+        console.warn("Mismatched or missing job ID in message:", message);
         return;
       }
 
-      jobStatus.value = message.type;
-
-      if (message.type === 'success') {
+      // --- Handle updates ---
+      if (message.type === "success" || message.status === "successful") {
         response.value = message;
+        jobStatus.value = "successful";
         loading.value = false;
         progressPercent.value = 100;
-        progressMessage.value = 'Completed successfully';
+        progressMessage.value = "Completed successfully";
         ws.close();
-      } else if (message.type === 'failed') {
-        response.value = { error: 'Job failed', details: message };
+      } else if (message.type === "failed" || message.status === "failed") {
+        response.value = { error: "Job failed", details: message };
+        jobStatus.value = "failed";
         loading.value = false;
-        progressMessage.value = 'Execution failed';
+        progressMessage.value = "Execution failed";
         ws.close();
-      } else if (message.type === 'inProgress') {
-        jobStatus.value = 'running...';
-
+      } else {
+        jobStatus.value = "running...";
         progressPercent.value = message.progress ?? progressPercent.value;
-        progressMessage.value = message.statusText ?? progressMessage.value;
+        progressMessage.value = message.message ?? message.statusText ?? progressMessage.value;
       }
     } catch (e) {
-      console.error('Invalid WebSocket message format:', event.data);
+      console.error("Invalid WebSocket message format:", event.data);
     }
   };
 
   ws.onerror = (err) => {
-    console.error('WebSocket error', err);
+    console.error("WebSocket error", err);
     ws.close();
   };
 };
-
 
 const validateRequiredInputs = (): boolean => {
   for (const inputId of requiredInputs.value) {
