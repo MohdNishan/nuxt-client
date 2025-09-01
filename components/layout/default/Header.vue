@@ -45,18 +45,10 @@
             </q-btn>
             <q-menu>
               <q-list dense>
-                <q-item clickable v-close-popup class="q-px-lg">
+                <q-item clickable v-close-popup 
+                  :href="`${config.public.NUXT_OIDC_ISSUER}/account/?referrer=${config.public.NUXT_OIDC_CLIENT_ID}&referrer_uri=${config.public.AUTH_ORIGIN}`"
+                  class="q-px-lg">
                   <q-item-section class="q-px-sm">{{ t('Profile') }}</q-item-section>
-                </q-item>
-                <q-item clickable v-close-popup>
-                  <q-item-section class="q-px-sm">{{ t('Sample') }}</q-item-section>
-                </q-item>
-                <q-item clickable v-close-popup>
-                  <q-item-section class="q-px-sm">{{ t('Recent Activity') }}</q-item-section>
-                </q-item>
-                <q-separator/>
-                <q-item clickable v-close-popup to="/help">
-                  <q-item-section class="q-px-sm">{{ t('Help') }}</q-item-section>
                 </q-item>
                 <q-separator/>
                 <q-item clickable v-close-popup @click="showLogoutDialog">
@@ -113,32 +105,9 @@ const loggedUser = ref({email: 'mathereall@gmail.com'}) // TODO: Implement user 
 
 
 const authStore = useAuthStore()
-
-
 const { landingLinks } = useLandingLinks()
 
-function autoLabel(href: string): string {
-  const filename = href.split('/').pop()?.replace('.html', '') || ''
-  return filename.charAt(0).toUpperCase() + filename.slice(1)
-}
 
-const homeTab = computed(() =>
-  landingLinks.value
-    .filter(link => link.href && link.href.endsWith('index.html'))
-    .map(link => ({
-      path: link.href,
-      label: 'Home'
-    }))
-)
-
-const rightTabs = computed(() =>
-  landingLinks.value
-    .filter(link => link.href && link.href.endsWith('.html') && !link.href.endsWith('index.html'))
-    .map(link => ({
-      path: link.href,
-      label: autoLabel(link.href)
-    }))
-)
 
 
 const { locale, t } = useI18n()
@@ -152,6 +121,60 @@ const router = useRouter()
 const {signOut} = useAuth()
 
 const gravatarUrl = ref('https://www.gravatar.com/avatar/46d229b033af06a191ff2267bca9ae56/')
+
+
+
+
+const selfHref = computed(() => {
+  const selfLink = landingLinks.value.find(link => link.rel === 'self')
+  return selfLink?.href || ''
+})
+
+
+function rewriteHref(href: string): string {
+  if (!selfHref.value) return href
+  let relative = href.replace(selfHref.value, '') 
+
+
+  if (relative === 'api') relative = 'swagger'
+
+  return `/${relative}` 
+}
+
+// helper to generate labels
+function autoLabel(href: string, rel?: string): string {
+  if (rel === 'service-desc') return 'Swagger'
+  const filename = href.split('/').pop()?.replace('.html', '') || ''
+  return filename.charAt(0).toUpperCase() + filename.slice(1)
+}
+
+
+
+const homeTab = computed(() =>
+  landingLinks.value
+    .filter(link => link.href && link.href.endsWith('index.html'))
+    .map(link => ({
+      path: '/', // always root for Home
+      label: 'Home'
+    }))
+)
+
+const rightTabs = computed(() =>
+  landingLinks.value
+    .filter(link =>
+      link.href &&
+      !link.href.endsWith('index.html') &&
+      (
+        link.type === 'application/json' ||
+        link.rel === 'service-desc' // include Swagger
+      )
+    )
+    .map(link => ({
+      path: rewriteHref(link.href),
+      label: autoLabel(link.href, link.rel)
+    }))
+)
+
 
 const isSmallScreen = computed(() => {
   return $q.screen.width <= $q.screen.sizes.sm
@@ -215,8 +238,8 @@ const handleLogout = async () => {
 }
 
 onMounted(() => {
-  if (!!isLoggedUser.value && loggedUser.value.email) {
-    gravatarUrl.value = `https://www.gravatar.com/avatar/${stringToMD5(loggedUser.value.email)}/`
+  if (authStore.user && authStore.user.email) {
+    gravatarUrl.value = `https://www.gravatar.com/avatar/${stringToMD5(authStore.user.email)}/`
   }
   console.log("process.env", process.env)
 })

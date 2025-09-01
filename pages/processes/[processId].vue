@@ -3,6 +3,7 @@ import { ref, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useRuntimeConfig } from '#imports'
 import { triggerRef } from 'vue'
+import { uuid } from 'vue-uuid'
 
 const {
   params: { processId }
@@ -26,13 +27,14 @@ const validationErrors = ref<Record<string, boolean>>({})
 const progressPercent = ref(0)
 const progressMessage = ref('')
 const jobId = ref("");
+const channelId = ref(uuid.v1());
 
 
 
 const subscriberValues = ref({
-  successUri: 'http://zookernel/cgi-bin/publish.py?jobid=JOBSOCKET-83dcc87e-55a7-11f0-abed-0242ac106a07&type=success',
-  inProgressUri: 'http://zookernel/cgi-bin/publish.py?jobid=JOBSOCKET-83dcc87e-55a7-11f0-abed-0242ac106a07&type=inProgress',
-  failedUri: 'http://zookernel/cgi-bin/publish.py?jobid=JOBSOCKET-83dcc87e-55a7-11f0-abed-0242ac106a07&type=failed'
+  successUri: 'http://zookernel/cgi-bin/publish.py?jobid=JOBSOCKET-'+channelId.value+'&type=success',
+  inProgressUri: 'http://zookernel/cgi-bin/publish.py?jobid=JOBSOCKET-'+channelId.value+'&type=inProgress',
+  failedUri: 'http://zookernel/cgi-bin/publish.py?jobid=JOBSOCKET-'+channelId.value+'&type=failed'
 })
 
 
@@ -366,6 +368,8 @@ const submitProcess = async () => {
         }
       }
     }
+      // Start WebSocket listener
+      listenToWebSocket(channelId.value);
 
     // Submit execution request
     const res = await $fetch(`${config.public.NUXT_ZOO_BASEURL}/ogc-api/processes/${processId}/execution`, {
@@ -386,10 +390,7 @@ const submitProcess = async () => {
         successUri: `http://zookernel/cgi-bin/publish.py?jobid=${jobId}&type=success`,
         inProgressUri: `http://zookernel/cgi-bin/publish.py?jobid=${jobId}&type=inProgress`,
         failedUri: `http://zookernel/cgi-bin/publish.py?jobid=${jobId}&type=failed`
-      };
-
-      // Start WebSocket listener
-      listenToWebSocket(jobId);
+      }; 
 
     } else {
       // For sync responses or if no job ID is returned
