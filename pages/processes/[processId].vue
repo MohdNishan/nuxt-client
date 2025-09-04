@@ -5,6 +5,9 @@ import { useRuntimeConfig } from '#imports'
 import { triggerRef } from 'vue'
 import { uuid } from 'vue-uuid';
 import { useQuasar } from 'quasar'
+import HelpDialog from '@/components/help/HelpDialog.vue'
+import processIdHelp from '@/components/help/processIdHelp.js'
+
 
 const {
   params: { processId }
@@ -31,7 +34,8 @@ const jobId = ref("");
 const channelId = ref(uuid.v1());
 const $q = useQuasar()
 let ws: WebSocket | null = null
-
+const helpVisible = ref(false)
+const helpContent = processIdHelp
 
 const subscriberValues = ref({
   successUri: 'http://zookernel/cgi-bin/publish.py?jobid=JOBSOCKET-' + channelId.value + '&type=success',
@@ -511,6 +515,20 @@ const removeInputField = (inputId: string, index: number) => {
 </script>
 
 <template>
+  <div>
+    <q-btn
+      flat
+      icon="help_outline"
+      color="primary"
+      label="Help"
+      @click="helpVisible = true"
+      class="q-mb-md"
+    />
+    
+    <HelpDialog
+      v-model="helpVisible"
+      :help-content="helpContent"
+    />
   <q-page class="q-pa-md">
     <div v-if="data">
    
@@ -902,4 +920,5 @@ const removeInputField = (inputId: string, index: number) => {
     </div>
     <q-spinner v-else />
   </q-page>
+  </div>
 </template>
