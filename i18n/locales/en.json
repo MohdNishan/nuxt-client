@@ -89,5 +89,8 @@
   "Process deployed successfully": "Process deployed successfully",
   "Failed to deploy process": "Failed to deploy process",
   "Request failed": "Request failed",
-  "Authenticate": "Authenticate"
+  "Authenticate": "Authenticate",
+
+  "Below are the supported conformance classes for this API:":"Below are the supported conformance classes for this API:",
+  "Conformance Classes":"Conformance Classes"
 }

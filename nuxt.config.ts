@@ -36,19 +36,19 @@ export default defineNuxtConfig({
     i18n: {
         langDir: 'locales',
         locales: [
-          { code: 'en', iso: 'en-US', file: 'en.json', name: 'English' },
-          { code: 'fr', iso: 'fr-FR', file: 'fr.json', name: 'Française' }
+          { code: 'en-US', iso: 'en-US', file: 'en.json', name: 'English' },
+          { code: 'fr-FR', iso: 'fr-FR', file: 'fr.json', name: 'Française' }
         ],
-        defaultLocale: 'en',
+        defaultLocale: 'en-US',
         lazy: true,
-        strategy: 'no_prefix', // 'no_prefix' used to keep URLs clean. Language switching is handled via cookies and UI. SEO impact is minimal for internal app.
+        strategy: 'no_prefix',
         detectBrowserLanguage: {
           useCookie: true,
           cookieKey: 'i18n_redirected',
-          fallbackLocale: 'en',
+          fallbackLocale: 'en-US',
         }
       },
-      
+       
 
     auth: {
         isEnabled: true,

@@ -6,10 +6,7 @@
             <q-item-section>
               <q-select
                 v-model="selectedLang"
-                :options="[
-                  { label: 'English', value: 'en' },
-                  { label: 'Française', value: 'fr' }
-                ]"
+                :options="options"
                 dense borderless emit-value map-options
                 :label="t('Language')"
               />
@@ -39,12 +36,27 @@ import { useLayoutStore } from '~/stores/layout'
 import { useI18n } from 'vue-i18n'
 import { useCookie } from '#app'
 
+
+const options = [
+  { label: 'English', value: 'en-US' },
+  { label: 'Française', value: 'fr-FR' }
+]
+
 const { locale, t } = useI18n()
-const selectedLang = ref(locale.value)
+const langCookie = useCookie('i18n_redirected')
+
+
+const selectedLang = ref(langCookie.value || 'en-US')
+
+// Sync changes
 watch(selectedLang, (val) => {
-  locale.value = val
-  useCookie('i18n_redirected').value = val
+  langCookie.value = val
+  locale.value = val 
+  console.log("Cookie + Header:", val)
 })
+
+
+
 
 const layoutStore = useLayoutStore()
 const selectedLayout = ref(layoutStore.currentLayout)

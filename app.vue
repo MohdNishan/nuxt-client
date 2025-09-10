@@ -22,11 +22,12 @@ const layoutComponent = computed(() => {
   return map[layoutStore.currentLayout] || DefaultLayout
 })
 
-// i18n locale from cookie
+
 const { locale } = useI18n()
 const langCookie = useCookie('i18n_redirected')
+
 if (langCookie.value && langCookie.value !== locale.value) {
-  locale.value = langCookie.value
+  locale.value = langCookie.value 
 }
 </script>
 

@@ -89,5 +89,8 @@
   "Process deployed successfully": "Processus déployé avec succès",
   "Failed to deploy process": "Échec du déploiement du processus",
   "Request failed": "Échec de la requête",
-  "Authenticate": "Accéder"
+  "Authenticate": "Accéder",
+
+  "Below are the supported conformance classes for this API:":"Voici les classes de conformité prises en charge pour cette API :",
+  "Conformance Classes":"Classes de conformité"
 }
