@@ -2,7 +2,7 @@ export default `
   <style>
     .help-container {
       font-family: 'Segoe UI', sans-serif;
-      color: #d4bbbbff;
+      color: #333;
       line-height: 1.6;
       padding: 10px;
     }
