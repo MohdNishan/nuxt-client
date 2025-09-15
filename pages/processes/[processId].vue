@@ -309,63 +309,7 @@ const pollJobStatus = async (jobId: string) => {
   }
 }
 
-const listenToWebSocket = () => {
-  const wsUrl = `ws://${window.location.hostname}:8888/`
-  
-  // Reuse or create WebSocket
-  if (!ws || ws.readyState !== WebSocket.OPEN) {
-    ws = new WebSocket(wsUrl)
-  }
 
-  ws.onopen = () => {
-    console.log("WebSocket connected")
-    if (channelId.value) {
-      ws!.send("SUB JOBSOCKET-" + channelId.value)
-      console.log("Subscribed to JOBSOCKET-" + channelId.value)
-    } else {
-      console.warn("No channelId available to subscribe.")
-    }
-  }
-
-  ws.onmessage = (event) => {
-    try {
-      const message = JSON.parse(event.data)
-      if (!channelId.value) return
-      if (message.jobid !== "JOBSOCKET-" + channelId.value) return
-
-      // Update progress
-      if (message.progress !== undefined) progressPercent.value = message.progress
-      if (message.message) progressMessage.value = message.message
-
-      if (message.type === "success" || message.status === "successful") {
-        progressPercent.value = 100
-        progressMessage.value = "Completed successfully"
-        jobStatus.value = "successful"
-        response.value = message
-        loading.value = false
-        ws?.close()
-      } 
-      else if (message.type === "failed" || message.status === "failed") {
-        progressMessage.value = "Execution failed"
-        jobStatus.value = "failed"
-        response.value = { error: "Job failed", details: message }
-        loading.value = false
-        ws?.close()
-      } 
-      else {
-        jobStatus.value = "running..."
-      }
-    } catch (e) {
-      console.error("Invalid WebSocket message:", event.data)
-    }
-  }
-
-  ws.onerror = (err) => {
-    console.error("WebSocket error", err)
-    progressMessage.value = "WebSocket connection error"
-    ws?.close()
-  }
-}
 
 
 const validateRequiredInputs = (): boolean => {
@@ -419,88 +363,142 @@ function validateAndSubmit() {
   submitProcess()
 }
 
+
 const submitProcess = async () => {
   if (!validateRequiredInputs()) {
     $q.notify({
-      type: 'negative',
-      message: 'Please fill all required inputs before submitting.'
-    })
-    return
+      type: "negative",
+      message: "Please fill all required inputs before submitting.",
+    });
+    return;
   }
+
+
+  response.value = null;
+  jobStatus.value = "submitted";
+  progressPercent.value = 0;
+  progressMessage.value = "Submitting job...";
+
+  const wsUrl = `ws://${window.location.hostname}:8888/`;
+
+  // subscriber URLs for async only
+  const subscribers = {
+    successUri: `http://zookernel/cgi-bin/publish.py?jobid=JOBSOCKET-${channelId.value}&type=success`,
+    inProgressUri: `http://zookernel/cgi-bin/publish.py?jobid=JOBSOCKET-${channelId.value}&type=inProgress`,
+    failedUri: `http://zookernel/cgi-bin/publish.py?jobid=JOBSOCKET-${channelId.value}&type=failed`,
+  };
 
   try {
-    loading.value = true
-    response.value = null
-    jobStatus.value = 'submitted'
-    progressPercent.value = 0
-    progressMessage.value = "Submitting job..."
-
-    // Build request payload
-    const originalPayload = JSON.parse(jsonRequestPreview.value)
-    if (preferMode.value === 'respond-async') {
-      originalPayload.executionOptions = {
-        subscriber: { ...subscriberValues.value }
-      }
+    const originalPayload = JSON.parse(jsonRequestPreview.value || "{}");
+    if (preferMode.value === "respond-async") {
+      originalPayload.executionOptions = originalPayload.executionOptions ?? {};
+      originalPayload.executionOptions.subscriber = { ...subscribers };
+      loading.value = true;
     }
 
-      listenToWebSocket(channelId.value);
-
-
-    // Send job request
-    const res = await $fetch(`${config.public.NUXT_ZOO_BASEURL}/ogc-api/processes/${processId}/execution`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${authStore.token.access_token}`,
-        'Content-Type': 'application/json',
-        'Prefer': preferMode.value
-      },
-      body: JSON.stringify(originalPayload)
-    })
-
-    if (res.jobID) {
-      //  Correct jobId
-      const jobId = res.jobID.replace(/^JOBSOCKET-/, '')
-
-      let gotRealProgress = false
-
-      const interval = setInterval(() => {
-        if (!gotRealProgress && progressPercent.value < 90 && loading.value) {
-          progressPercent.value += 10
-        } else {
-          clearInterval(interval)
-        }
-      }, 1000)
-
-      //  Listen for real updates
-      // listenToWebSocket(jobId)
-
-      const oldOnMessage = ws?.onmessage
-      if (ws) {
-        ws.onmessage = (event) => {
-          gotRealProgress = true
-          oldOnMessage?.(event)
-        }
+    const res = await $fetch(
+      `${config.public.NUXT_ZOO_BASEURL}/ogc-api/processes/${processId}/execution`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${authStore.token.access_token}`,
+          "Content-Type": "application/json",
+          Prefer: preferMode.value,
+        },
+        body: JSON.stringify(originalPayload),
       }
+    );
+
+   
+    if (preferMode.value === "respond-async") {
+      //  Async execution (requires jobID + websocket updates)
+      if (!res || !res.jobID) {
+        throw new Error("Expected async response with jobID, but got none");
+      }
+
+      jobId.value = res.jobID;
+      console.log(" Job submitted (server jobID):", res.jobID);
+
+      ws = new WebSocket(wsUrl);
+      ws.onopen = () => {
+        console.log(" WebSocket connected — subscribing to", "JOBSOCKET-" + channelId.value);
+        ws.send("SUB JOBSOCKET-" + channelId.value);
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          console.log(" WS message:", msg);
+
+          const msgJobId = msg.jobid ?? msg.jobID ?? null;
+          const msgId = msg.id ?? null;
+
+          if (msgJobId !== "JOBSOCKET-" + channelId.value && msgId !== jobId.value) {
+            console.log("Ignored WS message, not for this job:", msgJobId, msgId);
+            return;
+          }
+
+          // handle progress
+          if (msg.progress !== undefined) progressPercent.value = msg.progress;
+          if (msg.message) progressMessage.value = msg.message;
+
+
+          if (msg.status === "succeeded" || msg.type === "success") {
+            progressPercent.value = 100;
+            progressMessage.value = "Completed successfully";
+            jobStatus.value = "successful";
+            response.value = msg;
+            loading.value = false;
+            ws?.close();
+          } else if (msg.status === "failed" || msg.type === "failed") {
+            progressMessage.value = "Execution failed";
+            jobStatus.value = "failed";
+            response.value = { error: "Job failed", details: msg };
+            loading.value = false;
+            ws?.close();
+          } else {
+            jobStatus.value = "running...";
+          }
+        } catch (e) {
+          console.error(" Invalid WS message:", event.data, e);
+        }
+      };
+
+      ws.onerror = (err) => {
+        console.error("WebSocket error", err);
+        progressMessage.value = "WebSocket error";
+      };
 
     } else {
-      // Sync mode → job completed immediately
-      response.value = res
-      jobStatus.value = 'successful'
-      progressPercent.value = 100
-      loading.value = false
-    }
+      //  Sync execution (result returned immediately)
+      console.log(" Sync execution result:", res);
 
+      //  Check if error response
+      if (res.error) {
+        console.error(" Sync execution error:", res.error);
+        progressMessage.value = res.error.description || "Execution failed";
+        jobStatus.value = "failed";
+        response.value = res;
+      } else {
+        // No status - treat as successful raw result
+        progressPercent.value = 100;
+        progressMessage.value = "Completed successfully (sync)";
+        jobStatus.value = "successful";
+        response.value = res;
+      }
+
+
+    }
   } catch (error) {
-    console.error('Execution error:', error)
-    $q.notify({
-      type: 'negative',
-      message: 'Process execution failed.'
-    })
-    jobStatus.value = 'failed'
-    progressMessage.value = 'Execution failed'
-    loading.value = false
+    console.error("Execution error (POST):", error);
+    $q.notify({ type: "negative", message: "Process execution failed." });
+    jobStatus.value = "failed";
+    progressMessage.value = "Execution failed";
+    loading.value = false;
   }
-}
+};
+
+
 
 
 const isMultipleInput = (input: any) => {
