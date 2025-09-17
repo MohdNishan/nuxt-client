@@ -21,6 +21,7 @@ const inputValues = ref<Record<string, Array<{ mode: 'value' | 'href', value: st
 const outputValues = ref<Record<string, any>>({})
 const response = ref(null)
 const loading = ref(false)
+const submitting = ref(false);
 const jobStatus = ref('')
 const preferMode = ref<'respond-async' | 'respond-sync'>('respond-async')
 const jsonRequestPreview = ref('')
@@ -36,6 +37,8 @@ const $q = useQuasar()
 let ws: WebSocket | null = null
 const helpVisible = ref(false)
 const helpContent = processIdHelp
+    
+
 
 const subscriberValues = ref({
   successUri: 'http://zookernel/cgi-bin/publish.py?jobid=JOBSOCKET-' + channelId.value + '&type=success',
@@ -365,6 +368,10 @@ function validateAndSubmit() {
 
 
 const submitProcess = async () => {
+  if (loading.value || submitting.value) {
+    return; 
+  }
+
   if (!validateRequiredInputs()) {
     $q.notify({
       type: "negative",
@@ -394,6 +401,8 @@ const submitProcess = async () => {
       originalPayload.executionOptions = originalPayload.executionOptions ?? {};
       originalPayload.executionOptions.subscriber = { ...subscribers };
       loading.value = true;
+    }else{
+      submitting.value = true;
     }
 
     const res = await $fetch(
@@ -495,6 +504,8 @@ const submitProcess = async () => {
     jobStatus.value = "failed";
     progressMessage.value = "Execution failed";
     loading.value = false;
+  } finally {
+    submitting.value = false;
   }
 };
 
@@ -939,7 +950,9 @@ const removeInputField = (inputId: string, index: number) => {
             class="q-mb-md"
           />
         <div class="q-mt-md row q-gutter-sm">
-          <q-btn label="Submit" type="submit" color="primary" />
+          <q-btn label="Submit" type="submit" color="primary"   
+          :loading="loading || submitting"
+          :disable="loading || submitting" />
           <q-btn color="primary" outline label="Show JSON Preview" @click="showDialog = true" />
         </div>
       </q-form>
@@ -971,23 +984,37 @@ const removeInputField = (inputId: string, index: number) => {
             <q-btn
               label="Submit Request"
               color="primary"
-              :loading="loading"
+              :loading="loading || submitting"
+              :disable="loading || submitting"
               @click="() => { showDialog = false; submitProcess() }"
             />
           </q-card-actions>
         </q-card>
       </q-dialog>
 
+      <div v-if="submitting" class="text-caption text-primary q-mt-sm">
+        Submitting...
+      </div>
+
       <div class="q-mt-md" v-if="loading">
         <q-linear-progress
-          v-if="loading"
           :value="progressPercent / 100"
           color="primary"
-          class="q-mt-md"
+          size="lg"
+          rounded
         />
-        <div class="text-caption text-primary q-mt-sm">
-          <span v-if="progressMessage">{{ progressMessage }}</span>
-          <span v-else>Status: {{ jobStatus }}</span>
+
+       
+        <div class="row items-center justify-between q-mt-xs">
+          <div class="text-caption text-primary">
+            <span v-if="progressMessage">{{ progressMessage }}</span>
+            <span v-else>Status: {{ jobStatus }}</span>
+          </div>
+
+         
+          <div class="text-caption text-primary text-bold">
+            {{ progressPercent }}%
+          </div>
         </div>
       </div>
 
