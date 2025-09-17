@@ -37,6 +37,7 @@
   "serve-static": ">=1.16.0",
   "swagger-ui": "^5.18.2",
   "vue": "latest",
+  "vue-uuid": "^3.0.0",
   "vue3-openlayers": "^11.2.0"
 },
 "devDependencies": {
