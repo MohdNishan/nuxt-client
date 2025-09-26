@@ -45,6 +45,10 @@ export default `
       font-weight: bold;
       color: #e74c3c;
     }
+    .link {
+      color: #2980b9;
+      text-decoration: underline;
+    }
   </style>
 
   <div class="help-container">
@@ -54,16 +58,16 @@ export default `
     <div class="help-section">
       <h5>1. Browsing Available Processes</h5>
       <ul>
-        <li>Each process is shown with its <span class="highlight">title</span> and <span class="highlight">description</span>.</li>
-        <li>You can quickly scan the list to identify the process you need.</li>
+        <li>Each process is listed with its <span class="highlight">title</span> and <span class="highlight">description</span>.</li>
+        <li>Quickly scan the list to identify the process you need.</li>
       </ul>
     </div>
 
     <div class="help-section">
       <h5>2. Viewing Process Details</h5>
       <ul>
-        <li>Click on a process card or row to open its detailed form.</li>
-        <li>The detailed form allows you to provide inputs and run the process.</li>
+        <li>Click a process card/row to open its detailed form.</li>
+        <li>The form allows you to provide inputs and run the process.</li>
       </ul>
     </div>
 
@@ -71,17 +75,31 @@ export default `
       <h5>3. Searching and Filtering</h5>
       <ul>
         <li>Use the <span class="highlight">search box</span> to find a process by name or description.</li>
-        <li>If filters are available, use them to narrow down the list of processes.</li>
+        <li>If filters are available, apply them to narrow down results.</li>
       </ul>
     </div>
 
     <div class="help-section">
       <h5>4. Next Steps</h5>
-      <p>Once you select a process, you'll be redirected to its execution page where you can:</p>
+      <p>After selecting a process, you will be redirected to its execution page where you can:</p>
       <ul>
-        <li>Fill in required inputs.</li>
-        <li>Preview and submit execution requests.</li>
-        <li>View outputs and job results.</li>
+        <li>Provide required inputs.</li>
+        <li>Preview or directly submit execution requests.</li>
+        <li>Check outputs and monitor job results.</li>
+      </ul>
+    </div>
+
+    <div class="help-section">
+      <h5>5. Related Standards</h5>
+      <p>Processes follow the <a class="link" href="https://ogcapi.ogc.org/processes" target="_blank">OGC API - Processes Standard</a>, defining how to discover and execute processes.</p>
+    </div>
+
+    <div class="help-section">
+      <h5>6. FAQ — Common Issues</h5>
+      <ul>
+        <li><span class="highlight">Process not loading?</span> — Check if the server endpoint <code>/ogc-api/processes</code> is reachable.</li>
+        <li><span class="highlight">Missing descriptions?</span> — The server may not provide metadata for every process.</li>
+        <li><span class="highlight">Errors on execution?</span> — Ensure all required inputs are provided in the correct format.</li>
       </ul>
     </div>
   </div>

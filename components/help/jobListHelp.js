@@ -45,42 +45,67 @@ export default `
       font-weight: bold;
       color: #e74c3c;
     }
+    .link {
+      color: #2980b9;
+      text-decoration: underline;
+    }
   </style>
 
   <div class="help-container">
     <div class="help-title">📋 Understanding the Jobs List</div>
-    <p>This page shows all submitted jobs (executions) along with their details, status, and available actions.</p>
+    <p>This page lists all submitted jobs (process executions), their current status, and available actions.</p>
 
     <div class="help-section">
       <h5>1. Browsing Submitted Jobs</h5>
       <ul>
-        <li>Each job is listed with its <span class="highlight">Job ID</span>, <span class="highlight">Process</span>, <span class="highlight">Status</span>, and <span class="highlight">Created Time</span>.</li>
-        <li>You can quickly review all the jobs you have executed from this page.</li>
+        <li>Each job shows its <span class="highlight">Job ID</span>, <span class="highlight">Process</span>, <span class="highlight">Status</span>, and <span class="highlight">Created Time</span>.</li>
+        <li>Status values include:
+          <ul>
+            <li><span class="highlight">running</span> — process is executing.</li>
+            <li><span class="highlight">successful</span> — process finished and results are available.</li>
+            <li><span class="highlight">failed</span> — execution ended with an error.</li>
+            <li><span class="highlight">dismissed</span> — job was cancelled or removed.</li>
+          </ul>
+        </li>
       </ul>
     </div>
 
     <div class="help-section">
       <h5>2. Viewing Job Details</h5>
       <ul>
-        <li>Click on the <span class="highlight">View</span> action to open a job’s detailed information.</li>
-        <li>Details include inputs, outputs, and status updates from the server.</li>
+        <li>Click <span class="highlight">View</span> to open detailed information about a job.</li>
+        <li>Details include inputs, outputs, execution logs, and result links.</li>
       </ul>
     </div>
 
     <div class="help-section">
       <h5>3. Managing Jobs</h5>
       <ul>
-        <li>Use the <span class="highlight">Delete</span> option to remove a job permanently.</li>
-        <li>The <span class="highlight">Actions menu</span> may contain extra links provided by the server (e.g., results, logs, or metadata).</li>
+        <li>Use <span class="highlight">Delete</span> to permanently remove a job from the list.</li>
+        <li>The <span class="highlight">Actions menu</span> may contain extra links (e.g., direct results, logs, or metadata) provided by the server.</li>
       </ul>
     </div>
 
     <div class="help-section">
       <h5>4. Tips</h5>
       <ul>
-        <li>Job <span class="highlight">status</span> updates when you refresh the page.</li>
-        <li>Use <span class="highlight">View</span> to check progress or retrieve results.</li>
-        <li>Deleting a job is <span class="highlight">permanent</span>, so only delete if you no longer need it.</li>
+        <li>Refresh the page to update the latest job statuses.</li>
+        <li>Use <span class="highlight">View</span> to track progress and download results.</li>
+        <li>Remember: deleting a job is <span class="highlight">permanent</span>.</li>
+      </ul>
+    </div>
+
+    <div class="help-section">
+      <h5>5. Related Standards</h5>
+      <p>This feature follows the <a class="link" href="https://ogcapi.ogc.org/processes" target="_blank">OGC API - Processes (Jobs)</a> standard for managing asynchronous executions.</p>
+    </div>
+
+    <div class="help-section">
+      <h5>6. FAQ — Common Issues</h5>
+      <ul>
+        <li><span class="highlight">Job stuck in running?</span> — Refresh or check server logs; the process may still be executing.</li>
+        <li><span class="highlight">No results?</span> — Verify the job succeeded and outputs were requested with correct transmission mode.</li>
+        <li><span class="highlight">Deleted job still visible?</span> — Try refreshing; if still present, deletion may not be supported by the server.</li>
       </ul>
     </div>
   </div>
