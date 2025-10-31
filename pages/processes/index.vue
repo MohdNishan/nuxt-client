@@ -3,14 +3,15 @@ import { ref, computed, onMounted } from 'vue'
 import { useRuntimeConfig, useRouter } from '#imports'
 import { useI18n } from 'vue-i18n'
 import { QCard, QCardSection, QInput, QBtn, QDialog, QForm, QUploader, QSpinnerGears, Notify } from 'quasar'
-
-// ✅ Import Help components
+ 
+//  Import Help components
 import HelpDialog from '../../components/help/HelpDialog.vue'
 import processListHelp from '../../components/help/processListHelp.js'
-
+import yaml from 'js-yaml'
+ 
 const authStore = useAuthStore()
 const { locale, t } = useI18n()
-
+ 
 const config = useRuntimeConfig()
 const data = ref(null)
 const filter = ref('')
@@ -18,15 +19,18 @@ const router = useRouter()
 const modalContent = ref('')
 const showModal = ref(false)
 const toDisplayString = ref('')
-
-// ✅ Help dialog state
+ 
+//  Help dialog state
 const helpVisible = ref(false)
 const helpContent = processListHelp
-
+const selectedProcess = ref<any | null>(null)
+const cwlSvg = ref<string | null>(null)
+const loadingCwl = ref(false)
+ 
 const viewProcess = (row: any) => {
   router.push(`/processes/${row.id}`)
 }
-
+ 
 const packageProcess = async (row: any) => {
   try {
     const response = await fetch(`${config.public.NUXT_ZOO_BASEURL}/ogc-api/processes/${row.id}/package`, {
@@ -50,10 +54,47 @@ const packageProcess = async (row: any) => {
     showModal.value = false
   }
 }
+ 
+//  Load and visualize CWL as SVG
+// Load and visualize CWL as SVG (fixed)
+const loadCwlVisualization = async (row: any) => {
+  loadingCwl.value = true
+  selectedProcess.value = row
+  cwlSvg.value = null
 
+  try {
+    const response = await fetch(`${config.public.NUXT_ZOO_BASEURL}/ogc-api/processes/${row.id}/package`, {
+      method: 'GET',
+      headers: {
+        "Accept": "application/cwl+yaml",
+        "Authorization": `Bearer ${authStore.token.access_token}`
+      }
+    })
+
+    if (!response.ok) throw new Error('Failed to fetch CWL package')
+
+    const cwlText = await response.text()
+    const cwlData = yaml.load(cwlText)
+
+    const { create } = await import('cwl-svg')
+
+    const svg = await create(cwlData, { width: 900 })
+
+    cwlSvg.value = svg.outerHTML
+
+  } catch (err) {
+    console.error('Error rendering CWL visualization:', err)
+    Notify.create({ type: 'negative', message: 'Failed to load CWL visualization' })
+  } finally {
+    loadingCwl.value = false
+  }
+}
+
+ 
+ 
 const isConformToCwl = ref(false)
 const isCheckingConformance = ref(false)
-
+ 
 const checkConformance = async () => {
   isCheckingConformance.value = true
   try {
@@ -64,15 +105,15 @@ const checkConformance = async () => {
         'Accept-Language': locale.value
       }
     })
-
+ 
     if (response.ok) {
       const conformance = await response.json()
       console.log('Conformance response:', conformance)
-
+ 
       // Vérifier si l'API supporte le déploiement CWL
       const cwlConformanceUrl = 'http://www.opengis.net/spec/ogcapi-processes-2/1.0/conf/deploy-replace-undeploy'
       isConformToCwl.value = conformance.conformsTo?.includes(cwlConformanceUrl) || false
-
+ 
       console.log('CWL Conformance:', isConformToCwl.value)
     } else {
       console.error('Error fetching conformance:', response.status)
@@ -85,7 +126,7 @@ const checkConformance = async () => {
     isCheckingConformance.value = false
   }
 }
-
+ 
 const deleteProcess = async (row: any) => {
   if (confirm(t('Are you sure you want to delete the process') + ` "${row.id}"?`)) {
     try {
@@ -96,7 +137,7 @@ const deleteProcess = async (row: any) => {
           'Accept-Language': locale.value
         }
       })
-      
+     
       if (response.ok) {
         Notify.create({
           message: t('Process deleted successfully'),
@@ -121,17 +162,17 @@ const deleteProcess = async (row: any) => {
     }
   }
 }
-
+ 
 // Dialog process form
 const dialog = ref(false)
 const processName = ref('')
 const fileContent = ref('')
 const file = ref<File | null>(null)
-
+ 
 const openDialog = () => {
   dialog.value = true
 }
-
+ 
 const closeDialog = () => {
   dialog.value = false
   processName.value = ''
@@ -139,7 +180,7 @@ const closeDialog = () => {
   file.value = null
   // (refs.uploader as any).reset();
 }
-
+ 
 const onFileAdded = (files: File[]) => {
   if (files.length > 0) {
     file.value = files[0]
@@ -150,12 +191,12 @@ const onFileAdded = (files: File[]) => {
     reader.readAsText(file.value)
   }
 }
-
+ 
 const submitForm = async () => {
   if (!fileContent.value) {
     return
   }
-
+ 
   try {
     const formData = new FormData()
     formData.append('file', file.value)
@@ -173,7 +214,7 @@ const submitForm = async () => {
       },
       body: fileContent.value,
     })
-
+ 
     if(response.ok) {
       console.log('Process deployed successfully.')
       Notify.create({
@@ -197,10 +238,10 @@ const submitForm = async () => {
         icon: 'error'
       })
   }
-
+ 
   closeDialog()
 }
-
+ 
 const fetchData = async () => {
   try {
     data.value = await $fetch(`${config.public.NUXT_ZOO_BASEURL}/ogc-api/processes`, {
@@ -213,12 +254,12 @@ const fetchData = async () => {
     console.error('Error fetching data:', error)
   }
 }
-
+ 
 onMounted(() => {
   checkConformance()
   fetchData()
 })
-
+ 
 const columns = [
   { name: 'id', label: '#', field: 'id', align: 'left', sortable: true },
   { name: 'description', label: 'Description', field: 'description', align: 'left', sortable: true },
@@ -230,7 +271,7 @@ const columns = [
     sortable: false
   }
 ]
-
+ 
 const rows = computed(() => {
   if (!data.value?.processes) return []
   const term = filter.value.toLowerCase()
@@ -240,48 +281,53 @@ const rows = computed(() => {
     return idMatch || descMatch
   })
 })
-
+ 
 const formattedData = computed(() => JSON.stringify(data.value, null, 2))
-
+ 
 const onClearSearch = async () => {
   filter.value = ''
   await fetchData()
 }
 </script>
-
+ 
 <template>
   <q-page class="q-pa-sm">
     <div class="row justify-center">
       <div class="col-12 q-pa-md" style="max-width: 1080px;">
         <p class="text-h4 q-mb-md text-weight-bold">{{t('Processes List')}}</p>
-
-        <!-- ✅ Help Button -->
-        <q-btn
-          flat
-          icon="help_outline"
-          color="primary"
-          :label="t('Help')"
-          @click="helpVisible = true"
-          class="q-mb-md"
-        />
-
-        <!-- ✅ Help Dialog -->
+ 
+        <!--  Buttons Row -->
+        <div class="row items-center q-mb-md">
+          <!-- Help Button -->
+          <q-btn
+            flat
+            icon="help_outline"
+            color="primary"
+            :label="t('Help')"
+            @click="helpVisible = true"
+          />
+ 
+          <q-space />
+ 
+          <!-- Add Process Button -->
+          <q-btn
+            v-if="isConformToCwl === true"
+            color="primary"
+            icon="add"
+            :label="t('Add Process')"
+            @click="openDialog"
+            :loading="isCheckingConformance"
+          />
+        </div>
+ 
+        <!--  Help Dialog -->
         <HelpDialog
           v-model="helpVisible"
           title="Processes List Help"
           :help-content="helpContent"
         />
-
-        <q-btn
-          v-if="isConformToCwl === true"
-          color="primary"
-          icon="add"
-          :label="t('Add Process')"
-          @click="openDialog"
-          :loading="isCheckingConformance"
-        />
         <q-separator />
-
+ 
         <div class="q-mb-md">
           <q-input
             filled
@@ -293,7 +339,7 @@ const onClearSearch = async () => {
             @clear="onClearSearch"
           />
         </div>
-
+ 
         <q-table
           :title="t('Processes List')"
           :rows="rows"
@@ -310,6 +356,9 @@ const onClearSearch = async () => {
                   <q-item clickable v-close-popup @click="packageProcess(row)">
                     <q-item-section>{{ t('Package') }}</q-item-section>
                   </q-item>
+                  <q-item clickable v-close-popup @click="loadCwlVisualization(row)">
+                    <q-item-section>{{ t('Visualize CWL') }}</q-item-section>
+                  </q-item>
                   <q-item clickable v-close-popup @click="deleteProcess(row)">
                     <q-item-section class="text-negative">{{t('Delete')}}</q-item-section>
                   </q-item>
@@ -319,22 +368,64 @@ const onClearSearch = async () => {
             </q-td>
           </template>
         </q-table>
-
+        <!-- CWL Visualization Section -->
+        <div v-if="selectedProcess" class="q-mt-lg">
+          <p class="text-h6 text-weight-bold">
+            {{ t('CWL Visualization for') }} {{ selectedProcess.id }}
+          </p>
+ 
+          <div v-if="loadingCwl" class="row justify-center q-my-md">
+            <q-spinner-gears size="2em" color="primary" />
+          </div>
+ 
+          <div v-else class="row q-col-gutter-md">
+            <!-- SVG Panel -->
+            <div class="col-8">
+              <div
+                v-html="cwlSvg"
+                style="border:1px solid #ddd; border-radius:8px; padding:10px; background:#fff; overflow:auto;"
+              />
+            </div>
+ 
+            <!-- Metadata Panel -->
+            <div class="col-4">
+              <q-card flat bordered>
+                <q-card-section>
+                  <p class="text-subtitle1 text-weight-bold">{{ t('Metadata') }}</p>
+                  <p><b>{{ t('Description') }}:</b> {{ selectedProcess.description || '—' }}</p>
+                  <p><b>{{ t('Inputs') }}:</b></p>
+                  <ul>
+                    <li v-for="inp in selectedProcess.inputs" :key="inp.id">
+                      {{ inp.id }} ({{ inp.type }})
+                    </li>
+                  </ul>
+                  <p><b>{{ t('Outputs') }}:</b></p>
+                  <ul>
+                    <li v-for="out in selectedProcess.outputs" :key="out.id">
+                      {{ out.id }} ({{ out.type }})
+                    </li>
+                  </ul>
+                </q-card-section>
+              </q-card>
+            </div>
+          </div>
+        </div>
+ 
         <q-separator />
       </div>
     </div>
-
+ 
     <!-- Add Process Dialog -->
     <q-dialog v-model="dialog" persistent>
       <q-card style="min-width: 800px; max-width: 90vw;">
         <q-card-section>
           <div class="text-h6">{{t('Add a Process')}}</div>
         </q-card-section>
-
+ 
         <q-card-section>
           <q-form @submit.prevent="submitForm">
             <q-input v-model="processName" :label="t('Process Name')" />
-
+ 
             <q-uploader
               :label="t('Upload a .cwl file')"
               accept=".cwl"
@@ -344,7 +435,7 @@ const onClearSearch = async () => {
               :hide-upload-progress="true"
               style="width: 100%;"
             />
-
+ 
             <q-input
               v-model="fileContent"
               :label="t('File Content')"
@@ -352,7 +443,7 @@ const onClearSearch = async () => {
               @change="fileContent = $event.target.value"
               required
             />
-
+ 
             <div class="q-mt-md">
               <q-btn type="submit" :label="t('Submit')" color="primary" />
               <q-btn flat :label="t('Cancel')" @click="closeDialog" color="negative" />
@@ -361,7 +452,7 @@ const onClearSearch = async () => {
         </q-card-section>
       </q-card>
     </q-dialog>
-
+ 
     <!-- Package Modal -->
     <q-dialog v-model="showModal" persistent>
       <q-card style="min-width: 600px; max-width: 90vw;" class="rounded-borders">
@@ -370,7 +461,7 @@ const onClearSearch = async () => {
           <q-space />
           <q-btn icon="close" flat round dense @click="showModal = false" />
         </q-card-section>
-
+ 
         <q-card-section>
           <div v-if="modalContent">
             <pre style="max-width:100%;max-height:250px;overflow:auto;">{{ modalContent }}</pre>

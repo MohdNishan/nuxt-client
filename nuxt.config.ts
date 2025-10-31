@@ -76,5 +76,29 @@ export default defineNuxtConfig({
             NEXTAUTH_URL: process.env.NEXTAUTH_URL,
             ZOO_OGCAPI_REQUIRES_BEARER_TOKEN: process.env.ZOO_OGCAPI_REQUIRES_BEARER_TOKEN
         },
-    }
+    },
+    nitro: {
+        preset: 'node-server',
+        devProxy: {
+            '/api': {
+                target: 'http://localhost:8080',
+                changeOrigin: true,
+            },
+        },
+    },
+    // Added fix for CWL-SVG build issue in Docker
+    vite: {
+      resolve: {
+        alias: {
+          'cwl-svg': 'cwl-svg/dist/index.js'
+        }
+      },
+      optimizeDeps: {
+        include: ['cwl-svg'],
+      },
+      define: {
+        global: {},
+        'process.env': {}
+      }
+    } 
 })
