@@ -435,7 +435,6 @@ const onClearSearch = async () => {
   <q-space />
 
   <!-- Add Process Button -->
-</div>
 
           <q-btn
             v-if="isConformToCwl === true"
