@@ -732,4 +732,3 @@ const onClearSearch = async () => {
 }
 
 </style>
-
