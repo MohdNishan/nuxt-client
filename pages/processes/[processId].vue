@@ -891,25 +891,68 @@ const initMap = () => {
  
 }
  
-const updateBboxFromLayer = () => {
-  if (!drawnFeature || !editingBboxKey.value) return
- 
-  const bounds = drawnFeature.getBounds()
-  const bbox = [
+
+// Replace existing updateBboxFromLayer() with this code
+const updateBboxFromLayer = async () => {
+  if (!drawnFeature || !editingBboxKey.value) return;
+
+  const bounds = drawnFeature.getBounds();
+  // Leaflet provides lon/lat in these values (we treat as EPSG:4326)
+  const bbox4326 = [
     Number(bounds.getWest().toFixed(6)),  // minx (lon)
     Number(bounds.getSouth().toFixed(6)), // miny (lat)
     Number(bounds.getEast().toFixed(6)),  // maxx (lon)
     Number(bounds.getNorth().toFixed(6))  // maxy (lat)
-  ]
- 
-  // Save bbox to inputValues (ensure array exists)
-  if (!inputValues.value[editingBboxKey.value]) {
-    inputValues.value[editingBboxKey.value] = { bbox: bbox, crs: 'EPSG:4326', _schemaPropName: 'bbox' }
+  ];
+
+  // Get the desired / user-selected CRS for this input (normalize to EPSG:####)
+  let desiredCrs = (inputValues.value[editingBboxKey.value]?.crs || 'EPSG:4326').toString();
+  if (/^\d+$/.test(desiredCrs)) desiredCrs = `EPSG:${desiredCrs}`;
+  if (!/^EPSG:/i.test(desiredCrs)) desiredCrs = `EPSG:${desiredCrs}`;
+
+  // If desired is not 4326 we must convert the drawn (4326) bbox to desiredCrs
+  if (desiredCrs !== 'EPSG:4326') {
+    try {
+      await ensureProj4(); // loader already present in your file
+      // Ensure proj defs are known (reuse logic from reprojectBbox if needed)
+      // Convert SW and NE corner from 4326 -> desiredCrs
+      const sw = proj4('EPSG:4326', desiredCrs, [bbox4326[0], bbox4326[1]]);
+      const ne = proj4('EPSG:4326', desiredCrs, [bbox4326[2], bbox4326[3]]);
+
+      // Build min/max in target CRS (in case coords swapped)
+      const converted = [
+        Math.min(sw[0], ne[0]),
+        Math.min(sw[1], ne[1]),
+        Math.max(sw[0], ne[0]),
+        Math.max(sw[1], ne[1])
+      ].map(Number);
+
+      // Save in inputValues using the user-selected CRS
+      if (!inputValues.value[editingBboxKey.value]) {
+        inputValues.value[editingBboxKey.value] = { bbox: converted, crs: desiredCrs, _schemaPropName: 'bbox' };
+      } else {
+        inputValues.value[editingBboxKey.value].bbox = converted;
+        inputValues.value[editingBboxKey.value].crs = desiredCrs;
+      }
+    } catch (e) {
+      console.error('Could not reproject drawn bbox to desired CRS', desiredCrs, e);
+      // fallback: store as EPSG:4326 (old behaviour) but notify user
+      inputValues.value[editingBboxKey.value].bbox = bbox4326;
+      inputValues.value[editingBboxKey.value].crs = 'EPSG:4326';
+      $q.notify({ type: 'warning', message: `Could not convert bbox to ${desiredCrs}. Saved as EPSG:4326.` });
+    }
   } else {
-    inputValues.value[editingBboxKey.value].bbox = bbox
-    inputValues.value[editingBboxKey.value].crs = 'EPSG:4326'
+    // desired is EPSG:4326 — no reprojection needed
+    if (!inputValues.value[editingBboxKey.value]) {
+      inputValues.value[editingBboxKey.value] = { bbox: bbox4326, crs: 'EPSG:4326', _schemaPropName: 'bbox' };
+    } else {
+      inputValues.value[editingBboxKey.value].bbox = bbox4326;
+      inputValues.value[editingBboxKey.value].crs = 'EPSG:4326';
+    }
   }
-}
+};
+ 
+ 
  
 const closeBboxPopup = () => {
   bboxDialogVisible.value = false
@@ -1132,6 +1175,45 @@ watch(
   },
   { deep: true }
 )
+
+// Reproject displayed rectangle when user changes CRS while editing
+watch(
+  () => editingBboxKey.value ? inputValues.value[editingBboxKey.value]?.crs : null,
+  async (newCrs, oldCrs) => {
+    if (!map || !drawnFeature || !editingBboxKey.value) return;
+    if (!newCrs || newCrs === oldCrs) return;
+
+    // We want to keep displayed rectangle in EPSG:4326 for Leaflet,
+    // so convert the stored bbox (in newCrs) -> 4326 for display
+    try {
+      await ensureProj4();
+      let t = newCrs.toString();
+      if (/^\d+$/.test(t)) t = `EPSG:${t}`;
+      if (!/^EPSG:/i.test(t)) t = `EPSG:${t}`;
+
+      const input = inputValues.value[editingBboxKey.value];
+      if (!input || !Array.isArray(input.bbox) || input.bbox.length < 4) return;
+
+      // If stored CRS is not 4326, convert to 4326 for display
+      if (t !== 'EPSG:4326') {
+        const sw = proj4(t, 'EPSG:4326', [input.bbox[0], input.bbox[1]]);
+        const ne = proj4(t, 'EPSG:4326', [input.bbox[2], input.bbox[3]]);
+        const displayBbox = [
+          Math.min(sw[0], ne[0]),
+          Math.min(sw[1], ne[1]),
+          Math.max(sw[0], ne[0]),
+          Math.max(sw[1], ne[1])
+        ].map(Number);
+        drawBboxOnMap(displayBbox);
+      } else {
+        drawBboxOnMap(input.bbox.map(Number));
+      }
+    } catch (e) {
+      console.warn('Could not update displayed bbox after CRS change', e);
+    }
+  }
+);
+ 
  
 </script>
 
@@ -1425,7 +1507,7 @@ watch(
                   <!-- CRS selector -->
                   <q-select
                     v-model="inputValues[inputId].crs"
-                    :options="['EPSG:4326', 'EPSG:3857', 'EPSG:32633', 'EPSG:27700']"
+                    :options="['EPSG:4326', 'EPSG:3857', 'EPSG:32611']"
                     label="CRS / EPSG"
                     filled
                     dense
