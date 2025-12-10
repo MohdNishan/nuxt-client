@@ -445,7 +445,7 @@ const onClearSearch = async () => {
             @click="openDialog"
             :loading="isCheckingConformance"
           />
-        </div>
+      
 
         <!-- Help Dialog -->
         <HelpDialog
