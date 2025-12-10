@@ -19,6 +19,7 @@ const filter = ref('')
 const router = useRouter()
 const modalContent = ref('')
 const showModal = ref(false)
+const selectedPackageProcessId = ref('')
 
 
 const helpVisible = ref(false)
@@ -48,6 +49,7 @@ const viewProcess = (row: any) => {
 // fetch package 
 const packageProcess = async (row: any) => {
   try {
+    selectedPackageProcessId.value = row.id //store Id for filename
     const response = await fetch(`${config.public.NUXT_ZOO_BASEURL}/ogc-api/processes/${row.id}/package`, {
       method: 'GET',
       headers: {
@@ -69,6 +71,30 @@ const packageProcess = async (row: any) => {
     showModal.value = false
   }
 }
+
+
+const downloadCWL = () => {
+  if (!modalContent.value) return;
+
+  // Create a blob from the modal content
+  const blob = new Blob([modalContent.value], {
+    type: "text/yaml"
+  });
+
+  // Create a temporary download link
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+
+  // Use processId from packageProcess()
+  const filename = `${selectedPackageProcessId.value || 'application-package'}.cwl`
+
+  a.href = url;
+  a.download = filename
+  a.click();
+
+  // Clean up
+  URL.revokeObjectURL(url);
+};
 
 // load cwl-svg demo bundles  
 const loadSvgScripts = async () => {
@@ -694,7 +720,17 @@ const onClearSearch = async () => {
           <q-btn icon="close" flat round dense @click="showModal = false" />
         </q-card-section>
         <q-card-section>
-          <div v-if="modalContent"><pre style="max-width:100%;max-height:250px;overflow:auto;">{{ modalContent }}</pre></div>
+          <div v-if="modalContent">
+            <pre style="max-width:100%;max-height:250px;overflow:auto;">{{ modalContent }}</pre>
+            <div class="row justify-end">
+              <q-btn
+                color="primary"
+                label="Download CWL"
+                class="q-mt-md"
+                @click="downloadCWL"
+              />
+            </div>
+          </div>
           <div v-else class="text-negative">No data or failed to fetch.</div>
         </q-card-section>
       </q-card>
