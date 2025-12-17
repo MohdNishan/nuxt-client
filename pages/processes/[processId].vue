@@ -43,7 +43,9 @@ const editingBboxKey = ref<string | null>(null)
 let map: L.Map | null = null
 let drawLayer: L.LayerGroup | null = null
 let drawnFeature: L.Layer | null = null
- 
+const enabledInputs = reactive<Record<string, boolean>>({})
+const isCanceling = ref(false)
+const jobCanceled = ref(false)
  
 // Helper to extract a default bbox from various schema styles (old & new)
 const getDefaultBbox = (schema: any) => {
@@ -139,6 +141,12 @@ const fetchData = async () => {
       for (const [key, input] of Object.entries(data.value.inputs)) {
         if (input.minOccurs !== 0) {
           requiredInputs.value.push(key)
+        }
+
+        if (input.minOccurs === 0) {
+          enabledInputs[key] = false;
+        } else {
+          enabledInputs[key] = true;
         }
  
         // COMPLEX input (single or oneOf/contentMediaType)
@@ -656,6 +664,11 @@ const submitProcess = async () => {
               console.log("Ignored WS message, not for this job:", msgJobId, msgId);
             return;
           }
+
+          if (jobStatus.value === 'canceled') {
+            loading.value = false
+            ws?.close()
+          }
  
           // handle progress
           if (msg.progress !== undefined) progressPercent.value = msg.progress;
@@ -812,7 +825,7 @@ const initMap = () => {
   }
  
   //  Initialize map
-  map = L.map('bbox-map').setView([25.2, 55.3], 4) // default center (adjust as needed)
+  map = L.map('bbox-map').setView([0, 0], 0) // default center (adjust as needed)
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; OpenStreetMap contributors'
   }).addTo(map)
@@ -1115,7 +1128,13 @@ const drawBboxOnMap = (bbox4326: number[]) => {
  
   // ensure numeric values (sometimes they are strings)
   const nums = bbox4326.map(n => Number(n))
-  if (nums.some(n => Number.isNaN(n))) return
+
+  if (
+    nums.some(n => Number.isNaN(n)) ||
+    (nums[0] === 0 && nums[1] === 0 && nums[2] === 0 && nums[3] === 0)
+  ) {
+    return
+  }
  
   // remove previous drawn
   if (drawnFeature) {
@@ -1162,6 +1181,10 @@ watch(
   (newInputs, oldInputs) => {
     // iterate inputs, find bbox entries where crs changed
     for (const [key, val] of Object.entries(newInputs)) {
+      // Skip optional inputs that are not enabled
+      if (data.inputs[key]?.minOccurs === 0 && !enabledInputs[key]) {
+        continue
+      }
       const old = oldInputs ? (oldInputs as any)[key] : undefined
       if (val && typeof val === 'object' && 'bbox' in val && 'crs' in val) {
         const newCrs = val.crs
@@ -1213,8 +1236,63 @@ watch(
     }
   }
 );
- 
- 
+
+
+watch(data, () => {
+  if (data?.inputs) {
+    for (const [key, input] of Object.entries(data.inputs)) {
+      if (input.minOccurs === 0 && !(key in enabledInputs)) {
+        enabledInputs[key] = false
+      }
+    }
+  }
+})
+
+async function cancelJob() {
+  if (!jobId.value) return
+
+  isCanceling.value = true
+
+  try {
+    const url = `${config.public.NUXT_ZOO_BASEURL}/ogc-api/jobs/${jobId.value}`
+
+    await $fetch(url, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${authStore.token.access_token}`
+      }
+    })
+
+    jobStatus.value = 'canceled'
+    loading.value = false              
+    submitting.value = false         
+    jobId.value = null                 
+
+    stopJobTracking()
+
+    $q.notify({
+      type: 'warning',
+      message: 'Execution canceled'
+    })
+
+  } catch (err) {
+    console.error(err)
+    $q.notify({
+      type: 'negative',
+      message: 'Failed to cancel job'
+    })
+  } finally {
+    isCanceling.value = false
+  }
+}
+
+function stopJobTracking() {
+  if (ws) {
+    ws.close()
+    ws = null
+  }
+}
+
 </script>
 
 <template>
@@ -1343,13 +1421,21 @@ watch(
  
         <div v-for="(input, inputId) in data.inputs" :key="inputId" class="q-mb-md">
           <q-card class="q-pa-md" :ref="el => setInputRef(inputId, el)">
-            <div class="row items-center q-mb-sm">
+            <div class="row items-center justify-between q-mb-sm">
               <div class="text-blue text-bold">
                 {{ inputId.toUpperCase() }}
                 <span v-if="requiredInputs.includes(inputId)" class="text-red">*</span>
               </div>
+
+              <!-- Enable checkbox for optional input -->
+              <q-checkbox
+                v-if="input.minOccurs === 0"
+                v-model="enabledInputs[inputId]"
+                :label="`Enable`"
+                dense
+              />
             </div>
- 
+          <div v-if="enabledInputs[inputId] || input.minOccurs !== 0" :class="input.minOccurs === 0 ? 'q-pa-sm bg-grey-1 rounded-borders' : ''">
             <div class="q-gutter-sm">
               <q-badge color="grey-3" text-color="black" class="q-mb-sm">
                 {{ typeLabel(input, inputValues[inputId]) }}
@@ -1590,6 +1676,7 @@ watch(
                 />
               </template>
             </div>
+          </div>  
           </q-card>
         </div>
  
@@ -1745,10 +1832,23 @@ watch(
             class="q-mb-md"
           />
         <div class="q-mt-md row q-gutter-sm">
-          <q-btn label="Submit" type="submit" color="primary"  
-          :loading="loading || submitting"
-          :disable="loading || submitting" />
+          <q-btn
+            label="Submit"
+            type="submit"
+            color="primary"
+            :loading="loading || submitting"
+            :disable="jobStatus === 'running' || jobStatus === 'submitted'"
+          />
           <q-btn color="primary" outline label="Show JSON Preview" @click="showDialog = true" />
+          <div v-if="jobStatus === 'running' || jobStatus === 'submitted'" class="q-mt-md">
+            <q-btn
+              label="Cancel"
+              color="negative"
+              icon="cancel"
+              :loading="isCanceling"
+              @click="cancelJob"
+            />
+          </div>
         </div>
       </q-form>
  
