@@ -714,7 +714,7 @@ const onClearSearch = async () => {
                         </div>
 
                         <!-- Simple string value -->
-                        <div v-else-if="typeof md.value === 'string'" class="q-mt-xs text-grey-8">
+                        <div v-else-if="typeof md.value === 'string'" class="q-mt-xs text-grey-8 long-text">
                           {{ md.value }}
                         </div>
 
@@ -729,11 +729,11 @@ const onClearSearch = async () => {
                             
                             <!-- If URL inside nested value -->
                             <template v-if="isUrl(v)">
-                              <a :href="v" target="_blank" class="text-primary">{{ v }}</a>
+                              <a :href="v" target="_blank" class="text-primary long-text">{{ v }}</a>
                             </template>
 
                             <template v-else>
-                              {{ v }}
+                              <span class="long-text">{{ v }}</span>
                             </template>
                           </div>
                         </div>
@@ -861,4 +861,8 @@ const onClearSearch = async () => {
   border-bottom: none;
 }
 
+.long-text {
+  word-break: break-all;
+  overflow-wrap: anywhere;
+}
 </style>
