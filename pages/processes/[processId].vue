@@ -238,7 +238,7 @@ const fetchData = async () => {
           const defaultBbox = getDefaultBbox(input);
           inputValues.value[key] = reactive({
             bbox: defaultBbox,
-            crs: bboxInfo.crsDefault || 'EPSG:4326',
+            crs: normalizeCrsForProj4(bboxInfo.crsDefault || 'EPSG:4326'),
             _schemaPropName: bboxInfo.propName
           });
           continue;
@@ -435,10 +435,15 @@ watch(
  
       // ✅ ADD THIS: handle Bounding Box inputs first
       if (val && typeof val === 'object' && 'bbox' in val) {
-        formattedInputs[key] = {
-          bbox: val.bbox,
-          crs: val.crs || 'EPSG:4326'
-        }
+        const toUrn = (crs: string) => {
+        const epsg = normalizeCrsForProj4(crs)
+        const code = epsg.split(':')[1]
+        return `urn:ogc:def:crs:EPSG:6.6:${code}`
+      }
+      formattedInputs[key] = {
+        bbox: val.bbox,
+        crs: toUrn(val.crs || 'EPSG:4326')
+      }
         continue
       }
  
@@ -812,7 +817,25 @@ const openBboxPopup = (inputKey: string) => {
   bboxDialogVisible.value = true
   nextTick(() => initMap())
 }
- 
+
+const normalizeCrsForProj4 = (crs: string): string => {
+  if (!crs) return 'EPSG:4326'
+
+  // urn:ogc:def:crs:EPSG:6.6:4326 → EPSG:4326
+  const urnMatch = crs.match(/EPSG(?::\d+\.\d+)?:?(\d+)/i)
+  if (urnMatch) {
+    return `EPSG:${urnMatch[1]}`
+  }
+
+  // numeric only
+  if (/^\d+$/.test(crs)) {
+    return `EPSG:${crs}`
+  }
+
+  return crs
+}
+
+
 const initMap = () => {
   if (!process.client || !L) return
   const mapContainer = document.getElementById('bbox-map')
@@ -852,7 +875,8 @@ const initMap = () => {
   // draw current bbox for editing (convert to 4326 for Leaflet if needed)
   const current = editingBboxKey.value ? inputValues.value[editingBboxKey.value] : null
     if (current && Array.isArray(current.bbox) && current.bbox.length === 4) {
-    const crs = current.crs || 'EPSG:4326'
+    const rawCrs = current.crs || 'EPSG:4326'
+    const crs = normalizeCrsForProj4(rawCrs)
     if (crs !== 'EPSG:4326') {
       ensureProj4().then(() => {
         try {
@@ -919,9 +943,9 @@ const updateBboxFromLayer = async () => {
   ];
 
   // Get the desired / user-selected CRS for this input (normalize to EPSG:####)
-  let desiredCrs = (inputValues.value[editingBboxKey.value]?.crs || 'EPSG:4326').toString();
-  if (/^\d+$/.test(desiredCrs)) desiredCrs = `EPSG:${desiredCrs}`;
-  if (!/^EPSG:/i.test(desiredCrs)) desiredCrs = `EPSG:${desiredCrs}`;
+  let desiredCrs = normalizeCrsForProj4(
+    inputValues.value[editingBboxKey.value]?.crs || 'EPSG:4326'
+  )
 
   // If desired is not 4326 we must convert the drawn (4326) bbox to desiredCrs
   if (desiredCrs !== 'EPSG:4326') {
@@ -1028,9 +1052,9 @@ const reprojectBbox = async (inputKey: string, fromCrs: string, toCrs: string) =
   try {
     await ensureProj4()
     // Normalize codes
-    const f = (fromCrs || 'EPSG:4326').toString().replace(/^epsg:/i, 'EPSG:')
-    const t = (toCrs || 'EPSG:4326').toString().replace(/^epsg:/i, 'EPSG:')
- 
+    const f = normalizeCrsForProj4(fromCrs || 'EPSG:4326')
+    const t = normalizeCrsForProj4(toCrs || 'EPSG:4326')
+
     // If proj4 already knows the code, use directly; otherwise fetch def and register alias.
     const ensureDef = async (code: string) => {
       const numeric = code.split(':')[1]
@@ -1182,7 +1206,7 @@ watch(
     // iterate inputs, find bbox entries where crs changed
     for (const [key, val] of Object.entries(newInputs)) {
       // Skip optional inputs that are not enabled
-      if (data.inputs[key]?.minOccurs === 0 && !enabledInputs[key]) {
+      if (data.value?.inputs?.[key]?.minOccurs === 0 && !enabledInputs[key]) {
         continue
       }
       const old = oldInputs ? (oldInputs as any)[key] : undefined
@@ -1199,54 +1223,54 @@ watch(
   { deep: true }
 )
 
-// Reproject displayed rectangle when user changes CRS while editing
 watch(
   () => editingBboxKey.value ? inputValues.value[editingBboxKey.value]?.crs : null,
   async (newCrs, oldCrs) => {
-    if (!map || !drawnFeature || !editingBboxKey.value) return;
-    if (!newCrs || newCrs === oldCrs) return;
+    if (!map || !drawnFeature || !editingBboxKey.value) return
+    if (!newCrs || newCrs === oldCrs) return
 
-    // We want to keep displayed rectangle in EPSG:4326 for Leaflet,
-    // so convert the stored bbox (in newCrs) -> 4326 for display
     try {
-      await ensureProj4();
-      let t = newCrs.toString();
-      if (/^\d+$/.test(t)) t = `EPSG:${t}`;
-      if (!/^EPSG:/i.test(t)) t = `EPSG:${t}`;
+      await ensureProj4()
 
-      const input = inputValues.value[editingBboxKey.value];
-      if (!input || !Array.isArray(input.bbox) || input.bbox.length < 4) return;
+      const t = normalizeCrsForProj4(newCrs)
 
-      // If stored CRS is not 4326, convert to 4326 for display
+      const input = inputValues.value[editingBboxKey.value]
+      if (!input || !Array.isArray(input.bbox) || input.bbox.length < 4) return
+
+      // Convert stored bbox → EPSG:4326 for Leaflet display
       if (t !== 'EPSG:4326') {
-        const sw = proj4(t, 'EPSG:4326', [input.bbox[0], input.bbox[1]]);
-        const ne = proj4(t, 'EPSG:4326', [input.bbox[2], input.bbox[3]]);
+        const sw = proj4(t, 'EPSG:4326', [input.bbox[0], input.bbox[1]])
+        const ne = proj4(t, 'EPSG:4326', [input.bbox[2], input.bbox[3]])
+
         const displayBbox = [
           Math.min(sw[0], ne[0]),
           Math.min(sw[1], ne[1]),
           Math.max(sw[0], ne[0]),
           Math.max(sw[1], ne[1])
-        ].map(Number);
-        drawBboxOnMap(displayBbox);
+        ].map(Number)
+
+        drawBboxOnMap(displayBbox)
       } else {
-        drawBboxOnMap(input.bbox.map(Number));
+        drawBboxOnMap(input.bbox.map(Number))
       }
     } catch (e) {
-      console.warn('Could not update displayed bbox after CRS change', e);
+      console.warn('Could not update displayed bbox after CRS change', e)
     }
   }
-);
+)
 
+// Initialize for optional inputs after `data` is loaded
+watch(data, (val) => {
+  if (!val?.inputs) return
 
-watch(data, () => {
-  if (data?.inputs) {
-    for (const [key, input] of Object.entries(data.inputs)) {
-      if (input.minOccurs === 0 && !(key in enabledInputs)) {
-        enabledInputs[key] = false
-      }
+  for (const [key, input] of Object.entries(val.inputs)) {
+    if (input.minOccurs === 0 && !(key in enabledInputs)) {
+      enabledInputs[key] = false
     }
   }
 })
+
+
 
 async function cancelJob() {
   if (!jobId.value) return
