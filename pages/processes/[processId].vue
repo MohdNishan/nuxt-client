@@ -130,6 +130,77 @@ const typeLabel = (input: any, valForInputId: any) => {
   return input?.schema?.type || 'literal'
 }
  
+const normalizeBboxSchema = (schema: any) => {
+  if (!schema) return schema
+
+  // Already correct — nothing to do
+  if (
+    schema.type === 'object' &&
+    schema.format === 'ogc-bbox' &&
+    schema.properties?.bbox &&
+    schema.properties?.crs
+  ) {
+    return schema
+  }
+
+  // Case 1: flattened bbox schema (items + crs at same level)
+  if (
+    schema.format === 'ogc-bbox' &&
+    schema.items &&
+    schema.crs
+  ) {
+    return {
+      type: 'object',
+      format: 'ogc-bbox',
+      required: ['bbox', 'crs'],
+      properties: {
+        bbox: {
+          type: 'array',
+          oneOf: [
+            { minItems: 4, maxItems: 4 },
+            { minItems: 6, maxItems: 6 }
+          ],
+          items: schema.items
+        },
+        crs: schema.crs
+      },
+      nullable: schema.nullable ?? false
+    }
+  }
+
+  // Case 2: allOf reference (bbox.yaml / ogc-bbox)
+  if (Array.isArray(schema.allOf)) {
+    const hasOgcBbox = schema.allOf.some(
+      s => s?.format === 'ogc-bbox' || /bbox\.yaml$/i.test(s?.['$ref'])
+    )
+
+    if (hasOgcBbox) {
+      return {
+        type: 'object',
+        format: 'ogc-bbox',
+        required: ['bbox', 'crs'],
+        properties: {
+          bbox: {
+            type: 'array',
+            oneOf: [
+              { minItems: 4, maxItems: 4 },
+              { minItems: 6, maxItems: 6 }
+            ],
+            items: { type: 'number', format: 'double' }
+          },
+          crs: {
+            type: 'string',
+            format: 'uri',
+            default: 'urn:ogc:def:crs:EPSG:6.6:4326'
+          }
+        }
+      }
+    }
+  }
+
+  return schema
+}
+
 const fetchData = async () => {
   try {
     data.value = await $fetch(`${config.public.NUXT_ZOO_BASEURL}/ogc-api/processes/${processId}`, {
@@ -140,6 +211,7 @@ const fetchData = async () => {
  
     if (data.value && data.value.inputs) {
       for (const [key, input] of Object.entries(data.value.inputs)) {
+        input.schema = normalizeBboxSchema(input.schema)
         if (input.minOccurs !== 0) {
           requiredInputs.value.push(key)
         }
