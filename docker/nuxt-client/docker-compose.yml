@@ -2,7 +2,7 @@ version: '3'
 services:
   zookernel:
     platform: linux/amd64
-    image: zooproject/zoo-project-default:latest
+    image: zooproject/zoo-project:latest
     #build: .
     networks:
       front-tier-1:
@@ -39,7 +39,7 @@ services:
       - "keycloak:192.168.1.3"
   zoofpm:
     platform: linux/amd64
-    image: zooproject/zoo-project-default:latest
+    image: zooproject/zoo-project:latest
     networks:
       front-tier-1:
         ipv4_address: 172.16.232.11
@@ -133,6 +133,10 @@ services:
     build:
       context: .
       dockerfile: docker/nuxt-client/Dockerfile
+      args:
+        # Change this to 'blue' to deploy the blue theme
+        # Accepted values: 'default', 'blue'
+        NUXT_UI_THEME: ${NUXT_UI_THEME:-default}
     networks:
       front-tier-1:
         ipv4_address: 172.16.232.17

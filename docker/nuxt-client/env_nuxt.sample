@@ -7,8 +7,8 @@
 NUXT_OIDC_ISSUER = https://auth.geolabs.fr/realms/zooproject
 NUXT_OIDC_CLIENT_ID = webapp
 #NUXT_OIDC_CLIENT_SECRET = 50uZ6cJfSapnjp6rSFubRZjUL49Kksp0
-NUXT_OIDC_CLIENT_SECRET = onKWPIoKeRAThAkLjSINJZ6gd1qVzhXs
-NUXT_ZOO_BASEURL = http://192.168.1.3
+NUXT_OIDC_CLIENT_SECRET = bwMrzuh1dLQgTn7IDeVKhg2Esrt4LMOj
+NUXT_ZOO_BASEURL = https://d122.sandbox.ospd.geolabs.fr
 NUXT_BASE_URL = http://192.168.1.3:3000
 AUTH_ORIGIN = http://192.168.1.3:3000
 NUXT_AUTH_SECRET = client_secret_basic
@@ -19,3 +19,7 @@ NEXTAUTH_URL = http://192.168.1.3:3000
 ZOO_OGCAPI_REQUIRES_BEARER_TOKEN = true
 
 NODE_TLS_REJECT_UNAUTHORIZED=0
+
+# UI Theme: 'default' (brown), 'blue'
+# Note: this is a BUILD-time variable — changing it requires a rebuild
+NUXT_UI_THEME=default
